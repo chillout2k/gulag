@@ -1,8 +1,4 @@
-# gulag
-Gulag quarantine
-
-config.json:
-`{
+{
   "daemon":{
     "listen_host": "127.0.0.1",
     "listen_port": 5001
@@ -38,16 +34,4 @@ config.json:
   "importer":{
     "interval": 10
   }
-}`
-
-uwsgi.ini:
-`[uwsgi]
-processes = 4
-cheaper = 1
-cheaper-initial = 1
-cheaper-step = 1
-python-path = /app
-wsgi-file = /app/uwsgi.py
-pyargv = --config /config/config.json
-socket = /socket/gulag_uwsgi.sock`
-
+}
