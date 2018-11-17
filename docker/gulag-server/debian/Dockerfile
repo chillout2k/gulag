@@ -9,7 +9,7 @@ RUN set -ex ; \
     && apt-get -qq --no-install-recommends install \
        uwsgi-plugin-python3 python3-setuptools python3-flask \
        python3-flask-restful python3-mysql.connector \
-       uwsgi uwsgi-plugin-python3
+       uwsgi uwsgi-plugin-python3 procps net-tools
 
 RUN /bin/mkdir /config /socket /app
 COPY app/*.py /app/

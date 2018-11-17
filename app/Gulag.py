@@ -9,10 +9,12 @@ class GulagException(Exception):
     self.message = message
 
 class Gulag:
+  version = None
   config = None
   db = None
 
   def __init__(self, path_to_config_file):
+    self.version = "VERSION-TODO!"
     try:
       with open(path_to_config_file, 'r') as f:
         self.config = json.load(f)

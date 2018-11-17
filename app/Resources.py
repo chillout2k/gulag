@@ -1,5 +1,5 @@
 from flask import request
-from flask_restful import Resource, Api, abort
+from flask_restful import Resource, abort
 import json
 
 class GulagResource(Resource):
@@ -29,9 +29,29 @@ class GulagResource(Resource):
 
 class ResRoot(GulagResource):
   def get(self):
-    return {"resource": "root :)"}
+    return {"resource": "Root :)"}
+
+class ResMailboxes(GulagResource):
+  def get(self):
+    return {"resource": "Mailboxes"}
+
+class ResMailbox(GulagResource):
+  def get(self,id):
+    return {"resource": "Mailbox by ID"}
 
 class ResQuarMails(GulagResource):
   def get(self):
-    return {"abc": "1234"}
-#    return self.gulag.get_quarmails()
+    return {"resource": "QuarMails"}
+
+class ResQuarMail(GulagResource):
+  def get(self,id):
+    return {"resource": "QuarMail by ID"}
+
+class ResAttachments(GulagResource):
+  def get(self):
+    return {"resource": "Attachments"}
+
+class ResAttachment(GulagResource):
+  def get(self,id):
+    return {"resource": "Attachment by ID"}
+
