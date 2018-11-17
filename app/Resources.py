@@ -1,6 +1,7 @@
 from flask import request
 from flask_restful import Resource, abort
-import json
+from Entities import Mailbox,MailboxException,QuarMail,QuarMailException,Attachment,AttachmentException
+from Gulag import GulagException
 
 class GulagResource(Resource):
   gulag = None
@@ -33,7 +34,10 @@ class ResRoot(GulagResource):
 
 class ResMailboxes(GulagResource):
   def get(self):
-    return {"resource": "Mailboxes"}
+    try:
+      return self.gulag.get_mailboxes()
+    except GulagException as e:
+      abort(500, message=e.message)
 
 class ResMailbox(GulagResource):
   def get(self,id):
@@ -41,7 +45,10 @@ class ResMailbox(GulagResource):
 
 class ResQuarMails(GulagResource):
   def get(self):
-    return {"resource": "QuarMails"}
+    try:
+      return self.gulag.get_quarmails()
+    except GulagException as e:
+      abort(500, message=e.message)
 
 class ResQuarMail(GulagResource):
   def get(self,id):

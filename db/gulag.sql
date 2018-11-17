@@ -1,5 +1,7 @@
 create database Gulag;
 
+use Gulag;
+
 create table Mailboxes(
   email_address varchar(767) not null primary key collate 'ascii_general_ci',
   name varchar(256) not null,
@@ -9,10 +11,10 @@ create table Mailboxes(
   imap_pass varchar(256) not null,
   imap_mailbox varchar(256) not null default 'INBOX',
   imap_mailbox_fp varchar(256) not null default 'false-positives',
-  imap_separator varchar(4) not null default '/'
+  imap_separator varchar(4) not null default '/',
   comment varchar(256) default null
 )ENGINE = InnoDB;
-insert into Mailboxes (email_address,name,imap_user,imap_pass,) 
+insert into Mailboxes (email_address,name,imap_user,imap_pass) 
   values('quarantine-in@example.org','E-Mail inbound quarantine','quarantine-in','quarantine-in_secure_password');
 insert into Mailboxes (email_address,name,imap_user,imap_pass) 
   values('quarantine-out@example.org','E-Mail outbound quarantine','quarantine-out','quarantine-out_secure_password');

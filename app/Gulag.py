@@ -27,7 +27,8 @@ class Gulag:
         self.config['db']['server'],
         self.config['db']['user'],
         self.config['db']['password'],
-        self.config['db']['name']
+        self.config['db']['name'],
+        self.config['uri_prefixes']
       )
     except GulagDBException as e:
       raise GulagException(e.message) from e
@@ -54,8 +55,18 @@ class Gulag:
         msg = unseen['msg']
         msg_size = len(str(msg))
         r5321_from = email.header.decode_header(msg['Return-Path'])[0][0]
-        r5321_rcpts = email.header.decode_header(msg['X-Envelope-To-Blocked'])[0][0]
-        r5322_from = email.header.decode_header(msg['From'])[0][0]
+        r5321_rcpts = None
+        try:
+          r5321_rcpts = email.header.decode_header(msg['X-Envelope-To-Blocked'])[0][0]
+        except:
+          print("Failed to extract envelope recipients! Skipping mail")
+          continue
+        r5322_from = None
+        try:
+          r5322_from = email.header.decode_header(msg['From'])[0][0]
+        except:
+          print("Failed to extract from header! Skipping mail")
+          continue
         subject = email.header.decode_header(msg['Subject'])[0][0]
         msg_id = None
         try:
@@ -116,4 +127,16 @@ class Gulag:
         self.db.get_deprecated_mails(self.config['cleaner']['retention_period'])
       ))
     )
+  
+  def get_mailboxes(self):
+    try:
+      return self.db.get_mailboxes()
+    except GulagDBException as e:
+      raise GulagException("GulagDBException: " + e.message) from e
+
+  def get_quarmails(self):
+    try:
+      return self.db.get_quarmails()
+    except GulagDBException as e:
+      raise GulagException("GulagDBException: " + e.message) from e
 

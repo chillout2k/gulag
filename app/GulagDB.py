@@ -1,4 +1,5 @@
 import mysql.connector as mariadb
+from Entities import Mailbox,MailboxException,QuarMail,QuarMailException,Attachment,AttachmentException
 
 class GulagDBException(Exception):
   message = None
@@ -7,15 +8,18 @@ class GulagDBException(Exception):
 
 class GulagDB:
   conn = None
+  uri_prefixes = None
 
-  def __init__(self, server, user, password, name):
+  def __init__(self, server, user, password, name, uri_prefixes):
     try:
       self.conn = mariadb.connect(
         host=server,
         user=user,
         password=password,
-        database=name
+        database=name,
+        autocommit=True
       )
+      self.uri_prefixes = uri_prefixes
     except mariadb.Error as e:
       raise GulagDBException(e) from e
 
@@ -35,7 +39,12 @@ class GulagDB:
         dict = {}
         for (name, value) in zip(desc, tuple):
           dict[name[0]] = value
-        results.append(dict)
+        dict['href'] = self.uri_prefixes['mailboxes'] + dict['email_address']
+        try:
+          results.append(Mailbox(dict).__dict__)
+        except MailboxException as e:
+          print("MailboxException: " + e.message)
+          continue
       return results
     except mariadb.Error as e:
       raise GulagDBException(e) from e
@@ -55,8 +64,9 @@ class GulagDB:
          quarmail['mailbox_id'],quarmail['imap_uid'],quarmail['msg_size']
         )
       )
-      self.conn.commit()
-      return cursor.lastrowid
+      id = cursor.lastrowid
+      cursor.close()
+      return id
     except mariadb.Error as e:
       raise GulagDBException(e) from e
 
@@ -64,28 +74,35 @@ class GulagDB:
     try:
       cursor = self.conn.cursor()
       cursor.execute("delete from QuarMails where id=%s;", (id))
-      self.conn.commit()
-      return cursor.lastrowid
+      cursor.close()
+      return True
     except mariadb.Error as e:
       raise GulagDBException(e) from e
 
-  def get_quarmails(self, mailbox_id):
+#  def get_quarmails(self,mailbox_id):
+  def get_quarmails(self):
     try:
       cursor = self.conn.cursor()
-      cursor.execute(
-        "select * from QuarMails where mailbox_id='%s';",
-        (mailbox_id)
-      )
+#      cursor.execute(
+#        "select * from QuarMails where mailbox_id='%s';",
+#        (mailbox_id)
+#      )
+      cursor.execute("select * from QuarMails;")
       results = []
       data = cursor.fetchall()
       if data == None:
         return results
       desc = cursor.description
+      cursor.close()
       for tuple in data:
         dict = {}
         for (name, value) in zip(desc, tuple):
-          dict[name[0]] = value
-        results.append(dict)
+          if(name[0] == 'ctime'):
+            dict[name[0]] = value.strftime('%Y-%m-%d %H:%M:%S')
+          else:
+            dict[name[0]] = value
+        dict['href'] = self.uri_prefixes['quarmails'] + str(dict['id'])
+        results.append(QuarMail(dict).__dict__)
       return results
     except mariadb.Error as e:
       raise GulagDBException(e) from e
@@ -104,7 +121,7 @@ class GulagDB:
         dict = {}
         for (name, value) in zip(desc, tuple):
           dict[name[0]] = value
-        results.append(dict)
+        results.append(QuarMail(dict).__dict__)
       return results
     except mariadb.Error as e:
       raise GulagDBException(e) from e
@@ -116,7 +133,6 @@ class GulagDB:
         "(filename, content_type) values (%s,%s)",
         (attach['filename'], attach['content_type'])
       )
-      self.conn.commit()
       return cursor.lastrowid
     except mariadb.Error as e:
       raise GulagDBException(e) from e
@@ -128,7 +144,6 @@ class GulagDB:
         "(quarmail_id, attachment_id) values (%s,%s)",
         (quarmail_id, attachment_id)
       )
-      self.conn.commit()
     except mariadb.Error as e:
       raise GulagDBException(e) from e
 
