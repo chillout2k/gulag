@@ -1,6 +1,5 @@
-from flask import request
-from flask_restful import Resource, abort
-from Entities import Mailbox,MailboxException,QuarMail,QuarMailException,Attachment,AttachmentException
+#from flask import request
+from flask_restful import Resource, abort, reqparse
 from Gulag import GulagException
 
 class GulagResource(Resource):
@@ -61,4 +60,13 @@ class ResAttachments(GulagResource):
 class ResAttachment(GulagResource):
   def get(self,id):
     return {"resource": "Attachment by ID"}
+
+class ResRSPAMDImporter(GulagResource):
+  def post(self,mailbox_id):
+    try:
+      self.gulag.rspamd_http2smtp(mailbox_id)
+      # TODO: Response mit Location-Header?
+      return {"resource: ": "HTTP2SMTP for RSPAMD"}
+    except GulagException as e:
+      abort(400, message=e.message)
 

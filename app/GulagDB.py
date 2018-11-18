@@ -49,6 +49,28 @@ class GulagDB:
     except mariadb.Error as e:
       raise GulagDBException(e) from e
 
+  def get_mailbox(self,mailbox_id):
+    try:
+      cursor = self.conn.cursor()
+      cursor.execute(
+        "select * from Mailboxes where email_address='" + mailbox_id + "' limit 1;"
+      )
+      data = cursor.fetchall()
+      if data == None:
+        raise GulagDBException("Mailbox '" + mailbox_id + "' does not exist!")
+      desc = cursor.description
+      tuple = data[0]
+      dict = {}
+      for (name, value) in zip(desc, tuple):
+        dict[name[0]] = value
+      dict['href'] = self.uri_prefixes['mailboxes'] + dict['email_address']
+      try:
+        return Mailbox(dict).__dict__
+      except MailboxException as e:
+        raise GulagDBException(e.message) from e
+    except mariadb.Error as e:
+      raise GulagDBException(e) from e
+
   def add_quarmail(self, quarmail):
     try:
       cursor = self.conn.cursor()
@@ -121,7 +143,7 @@ class GulagDB:
         dict = {}
         for (name, value) in zip(desc, tuple):
           dict[name[0]] = value
-        results.append(QuarMail(dict).__dict__)
+        results.append(dict)
       return results
     except mariadb.Error as e:
       raise GulagDBException(e) from e

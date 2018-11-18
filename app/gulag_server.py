@@ -4,7 +4,7 @@ import argparse,sys
 from flask import Flask
 from flask_restful import Api
 from Gulag import Gulag,GulagException
-from Resources import ResRoot,ResMailboxes,ResQuarMails,ResAttachments
+from Resources import ResRoot,ResMailboxes,ResQuarMails,ResAttachments,ResRSPAMDImporter
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--config', required=True, help="Path to config file")
@@ -31,6 +31,10 @@ try:
   )
   api.add_resource(ResAttachments,
     '/api/v1/attachments/',
+    resource_class_kwargs={'gulag_object': gulag}
+  )
+  api.add_resource(ResRSPAMDImporter,
+    '/api/v1/mailboxes/<string:mailbox_id>/rspamdimporter/',
     resource_class_kwargs={'gulag_object': gulag}
   )
   if __name__ == '__main__':

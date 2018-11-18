@@ -1,5 +1,7 @@
 import json,sys
-import email,email.header
+import email,email.header,email.message
+from flask import request
+from smtplib import SMTP
 from GulagDB import GulagDB,GulagDBException
 from GulagMailbox import IMAPmailbox,IMAPmailboxException
 
@@ -139,4 +141,41 @@ class Gulag:
       return self.db.get_quarmails()
     except GulagDBException as e:
       raise GulagException("GulagDBException: " + e.message) from e
+  
+  def rspamd_http2smtp(self,mailbox_id):
+    mailbox = None
+    try:
+      mailbox = self.db.get_mailbox(mailbox_id)
+    except GulagDBException as e:
+      raise GulagException(e.message) from e
+
+    if(request.headers.get('X-Rspamd-From') == None):
+      raise GulagException("Missing Rspamd-specific headers (e.g. X-Rspamd-From)!")
+
+    # recompose rejected mail that will be sent to quarantine mailbox
+    #FIXME: print("mx_queue_id: " + request.headers.get('X-Rspamd-Qid'))
+    msg = None
+    try:
+      msg = email.message_from_string(request.get_data(as_text=True))
+      rcpts_hdr = str(request.headers.get('X-Rspamd-Rcpt'))
+      # FIXME: special chars []" rausstrippen! -> JSON!!!
+      print("RCPTs neu: " + rcpts_hdr)
+      msg.add_header("X-Envelope-To-Blocked", rcpts_hdr)
+      msg.add_header("X-Spam-Status", request.headers.get('X-Rspamd-Symbols'))
+#    except email.errors.* as e:
+    except:
+      raise GulagException(str(sys.exc_info()))
+    
+    try:
+      with SMTP(host=mailbox['smtp_server'],port=mailbox['smtp_port']) as smtp:
+        try:
+          smtp.sendmail(
+            request.headers.get('X-Rspamd-From'),
+            mailbox_id,
+            msg.as_string()
+          )
+        except (SMTPRecipientsRefused,SMTPHeloError,SMTPSenderRefused,SMTPDataError) as e:
+          raise GulagException(str(e)) from e
+    except TimeoutError as e:
+      raise GulagException(str(e)) from e
 

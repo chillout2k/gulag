@@ -9,12 +9,18 @@ class Mailbox:
   email_address = None
   name = None
   imap_server = None
+  imap_port = None
   imap_security = None
   imap_user = None
   imap_pass = None
   imap_mailbox = None
   imap_mailbox_fp = None
   imap_separator = None
+  smtp_server = None
+  smtp_port = None
+  smtp_security = None
+  smtp_user = None
+  smtp_pass = None
   comment = None
   href = None
 
@@ -37,6 +43,8 @@ class Mailbox:
         )
     else:
       raise MailboxException("'imap_security' is a mandatory!")
+    if 'imap_port' in mb_ref:
+      self.imap_port = mb_ref['imap_port']
     if 'imap_user' not in mb_ref:
       raise MailboxException("'imap_user' is mandatory!")
     self.imap_user = mb_ref['imap_user']
@@ -52,6 +60,16 @@ class Mailbox:
     if 'imap_separator' not in mb_ref:
       raise MailboxException("'imap_separator' is mandatory!")
     self.imap_seperator = mb_ref['imap_separator']
+    if 'smtp_server' in mb_ref:
+      self.smtp_server = mb_ref['smtp_server']
+    if 'smtp_port' in mb_ref:
+      self.smtp_port = mb_ref['smtp_port']
+    if 'smtp_security' in mb_ref:
+      self.smtp_security = mb_ref['smtp_security']
+    if 'smtp_user' in mb_ref:
+      self.smtp_user = mb_ref['smtp_user']
+    if 'smtp_pass' in mb_ref:
+      self.smtp_pass = mb_ref['smtp_pass']
     if 'comment' in mb_ref:
       self.comment = mb_ref['comment']
     if 'href' in mb_ref:
