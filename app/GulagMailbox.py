@@ -1,6 +1,7 @@
 import imaplib
 import email
 import email.header
+import time
 
 class IMAPmailboxException(Exception):
   message = None
@@ -71,19 +72,29 @@ class IMAPmailbox:
     msg = email.message_from_bytes(data[0][1])
     for part in msg.walk():
       if part.get_filename():
-        # ist ein Attachment
+        # let´s define parts with filename as attachments
         filename = email.header.decode_header(part.get_filename())
         if filename[0][1]:
-          # Encoded
+          # Encoded -> decode
           filename = filename[0][0].decode(filename[0][1])
         else:
-          # Nicht encoded
+          # not encoded
           filename = filename[0][0]
         results.append({
           'filename': filename,
-          'content-type': part.get_content_type(), # Ist das wirklich wahr?
+          'content-type': part.get_content_type(), 
           'content': part.get_payload(decode=True)
         })
-      # Ende if part.get_filename()
+      # End if part.get_filename()
     return results
+
+  def append_message(self,message):
+    rv, data = self.mailbox.append(
+      self.imap_mailbox,
+      'UNSEEN',
+      imaplib.Time2Internaldate(time.time()),
+      str(message).encode('utf-8')
+    )
+    if rv != 'OK':
+      raise IMAPmailboxException("ERROR appending message!")
 

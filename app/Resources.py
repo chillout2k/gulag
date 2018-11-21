@@ -64,9 +64,9 @@ class ResAttachment(GulagResource):
 class ResRSPAMDImporter(GulagResource):
   def post(self,mailbox_id):
     try:
-      self.gulag.rspamd_http2smtp(mailbox_id)
+      self.gulag.rspamd_http2imap(mailbox_id)
       # TODO: Response mit Location-Header?
-      return {"resource: ": "HTTP2SMTP for RSPAMD"}
+      return {"resource: ": "HTTP2IMAP for RSPAMD"}
     except GulagException as e:
       abort(400, message=e.message)
 
