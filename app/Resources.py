@@ -1,4 +1,4 @@
-#from flask import request
+from flask import request
 from flask_restful import Resource, abort, reqparse
 from Gulag import GulagException
 
@@ -47,11 +47,17 @@ class ResQuarMails(GulagResource):
     try:
       return self.gulag.get_quarmails()
     except GulagException as e:
-      abort(500, message=e.message)
+      abort(400, message=e.message)
 
 class ResQuarMail(GulagResource):
   def get(self,id):
-    return {"resource": "QuarMail by ID"}
+    args = {"id": id}
+    try:
+      if(request.args.get('rfc822_message')):
+        args['rfc822_message'] = True
+      return self.gulag.get_quarmail(args)
+    except GulagException as e:
+      abort(400, message=e.message)
 
 class ResAttachments(GulagResource):
   def get(self):

@@ -10,15 +10,25 @@ class GulagDB:
   conn = None
   uri_prefixes = None
 
-  def __init__(self, server, user, password, name, uri_prefixes):
+#  def __init__(self, server, user, password, name, uri_prefixes):
+  def __init__(self, args, uri_prefixes):
     try:
-      self.conn = mariadb.connect(
-        host=server,
-        user=user,
-        password=password,
-        database=name,
-        autocommit=True
-      )
+      if 'unix_socket' in args:
+        self.conn = mariadb.connect(
+          unix_socket=args['unix_socket'],
+          user=args['user'],
+          password=args['password'],
+          database=args['name'],
+          autocommit=True
+        )
+      else:
+        self.conn = mariadb.connect(
+          host=args['server'],
+          user=args['user'],
+          password=args['password'],
+          database=args['name'],
+          autocommit=True
+        )
       self.uri_prefixes = uri_prefixes
     except mariadb.Error as e:
       raise GulagDBException(e) from e
@@ -32,8 +42,8 @@ class GulagDB:
       cursor.execute("select * from Mailboxes;")
       results = []
       data = cursor.fetchall()
-      if data == None:
-        return results
+      if not data:
+        raise GulagDBException("No mailboxes found in DB!")
       desc = cursor.description
       for tuple in data:
         dict = {}
@@ -56,7 +66,7 @@ class GulagDB:
         "select * from Mailboxes where email_address='" + mailbox_id + "' limit 1;"
       )
       data = cursor.fetchall()
-      if data == None:
+      if not data:
         raise GulagDBException("Mailbox '" + mailbox_id + "' does not exist!")
       desc = cursor.description
       tuple = data[0]
@@ -101,19 +111,14 @@ class GulagDB:
     except mariadb.Error as e:
       raise GulagDBException(e) from e
 
-#  def get_quarmails(self,mailbox_id):
   def get_quarmails(self):
     try:
       cursor = self.conn.cursor()
-#      cursor.execute(
-#        "select * from QuarMails where mailbox_id='%s';",
-#        (mailbox_id)
-#      )
       cursor.execute("select * from QuarMails;")
       results = []
       data = cursor.fetchall()
-      if data == None:
-        return results
+      if not data:
+        raise GulagDBException("No Quarmails found in DB!")
       desc = cursor.description
       cursor.close()
       for tuple in data:
@@ -129,6 +134,29 @@ class GulagDB:
     except mariadb.Error as e:
       raise GulagDBException(e) from e
 
+  def get_quarmail(self,args):
+    try:
+      cursor = self.conn.cursor()
+      # TODO: build SQL query by args
+      query = "select * from QuarMails where id='" + args['id'] + "';"
+      cursor.execute(query)
+      data = cursor.fetchall()
+      if not data:
+        raise GulagDBException("Quarmail with id '"+ args['id'] + "' does not exist!")
+      desc = cursor.description
+      cursor.close()
+      tuple = data[0]
+      dict = {}
+      for (name, value) in zip(desc, tuple):
+        if(name[0] == 'ctime'):
+          dict[name[0]] = value.strftime('%Y-%m-%d %H:%M:%S')
+        else:
+          dict[name[0]] = value
+      dict['href'] = self.uri_prefixes['quarmails'] + str(dict['id'])
+      return QuarMail(dict).__dict__
+    except mariadb.Error as e:
+      raise GulagDBException(e) from e
+
   def get_deprecated_mails(self,retention_period):
     try:
       cursor = self.conn.cursor()
@@ -136,7 +164,7 @@ class GulagDB:
       cursor.execute(query)
       results = []
       data = cursor.fetchall()
-      if data == None:
+      if not data:
         return results
       desc = cursor.description
       for tuple in data:

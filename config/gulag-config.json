@@ -17,13 +17,13 @@
     }
   },
   "uri_prefixes": {
-    "root": "https://<fqdn>/api/v1/",
-    "mailboxes": "https://<fqdn>/api/v1/mailboxes/",
-    "quarmails": "https://<fqdn>/api/v1/quarmails/",
-    "attachments": "https://<fqdn>/api/v1/attachments/"
+    "root": "https://gulag.example.org/api/v1/",
+    "mailboxes": "https://gulag.example.org/api/v1/mailboxes/",
+    "quarmails": "https://gulag.example.org/api/v1/quarmails/",
+    "attachments": "https://gulag.example.org/api/v1/attachments/"
   },
   "db":{
-    "server": "127.0.0.1",
+    "unix_socket": "/mysqld/mysqld.sock",
     "user": "root",
     "password": "",
     "name": "Gulag"

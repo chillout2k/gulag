@@ -25,28 +25,17 @@ class Gulag:
       raise GulagException("CONFIG-FILE-Exception: " + str(sys.exc_info()))
 
     try:
-      self.db = GulagDB(
-        self.config['db']['server'],
-        self.config['db']['user'],
-        self.config['db']['password'],
-        self.config['db']['name'],
-        self.config['uri_prefixes']
-      )
+      self.db = GulagDB(self.config['db'],self.config['uri_prefixes'])
     except GulagDBException as e:
       raise GulagException(e.message) from e
 
   # Iterate through all mailboxes, extract metadata
-  # from all unseen mails and import them into database
+  # from all unseen mails and pump them into database
   def import_quarmails(self):
     for mailbox in self.db.get_mailboxes():
       imap_mb = None
       try:
-        imap_mb = IMAPmailbox(
-          mailbox['imap_server'],
-          mailbox['imap_user'],
-          mailbox['imap_pass'],
-          mailbox['imap_mailbox']
-        )
+        imap_mb = IMAPmailbox(mailbox)
       except IMAPmailboxException as e:
         print(e.message)
         continue
@@ -57,6 +46,9 @@ class Gulag:
         msg = unseen['msg']
         msg_size = len(str(msg))
         r5321_from = email.header.decode_header(msg['Return-Path'])[0][0]
+        if(r5321_from is not '<>'):
+          r5321_from = r5321_from.replace("<","")
+          r5321_from = r5321_from.replace(">","")
         r5321_rcpts = None
         try:
           r5321_rcpts = email.header.decode_header(msg['X-Envelope-To-Blocked'])[0][0]
@@ -149,6 +141,30 @@ class Gulag:
     except GulagDBException as e:
       raise GulagException("GulagDBException: " + e.message) from e
   
+  def get_quarmail(self,args):
+    qm_db = None
+    try:
+      qm_db = self.db.get_quarmail({
+        "id": args['id']
+      })
+    except GulagDBException as e:
+      raise GulagException("GulagDBException: " + e.message) from e
+    if 'rfc822_message' not in args:
+      return qm_db
+    mailbox = None
+    try:
+      mailbox = self.db.get_mailbox(qm_db['mailbox_id'])
+    except GulagDBException as e:
+      raise GulagException(e.message) from e 
+    imap_mb = None
+    try:
+      imap_mb = IMAPmailbox(mailbox)
+      qm_db['rfc822_message'] = imap_mb.get_message(qm_db['imap_uid'])
+      return qm_db
+    except IMAPmailboxException as e:
+      print(e.message)
+      raise GulagException(e.message) from e
+  
   def rspamd_http2imap(self,mailbox_id):
     mailbox = None
     try:
@@ -180,12 +196,7 @@ class Gulag:
     # Use IMAP´s APPEND command to store the message into mailbox
     imap_mb = None
     try:
-      imap_mb = IMAPmailbox(
-        mailbox['imap_server'],
-        mailbox['imap_user'],
-        mailbox['imap_pass'],
-        mailbox['imap_mailbox']
-      )
+      imap_mb = IMAPmailbox(mailbox)
       imap_mb.append_message(msg)
     except IMAPmailboxException as e:
       raise GulagException(e.message) from e

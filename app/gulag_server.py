@@ -4,8 +4,10 @@ import argparse,sys
 from flask import Flask
 from flask_restful import Api
 from Gulag import Gulag,GulagException
-from Resources import ResRoot,ResMailboxes,ResQuarMails,ResAttachments,ResRSPAMDImporter
-
+from Resources import (ResRoot,ResMailboxes,
+  ResQuarMails,ResQuarMail,ResAttachments,
+  ResRSPAMDImporter
+)
 parser = argparse.ArgumentParser()
 parser.add_argument('--config', required=True, help="Path to config file")
 args = parser.parse_args()
@@ -29,6 +31,10 @@ try:
     '/api/v1/quarmails/',
     resource_class_kwargs={'gulag_object': gulag}
   )
+  api.add_resource(ResQuarMail,
+    '/api/v1/quarmails/<string:id>',
+    resource_class_kwargs={'gulag_object': gulag}
+  )
   api.add_resource(ResAttachments,
     '/api/v1/attachments/',
     resource_class_kwargs={'gulag_object': gulag}
@@ -38,8 +44,8 @@ try:
     resource_class_kwargs={'gulag_object': gulag}
   )
   if __name__ == '__main__':
+    # following code snippet will be intercepted by uwsgi!
     app.run(debug=False,
-      # will be overriden by uwsgi.ini
       host=gulag.config['daemon']['listen_host'],
       port=gulag.config['daemon']['listen_port']
     )

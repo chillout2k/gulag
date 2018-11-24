@@ -15,11 +15,11 @@ class IMAPmailbox:
   imap_mailbox = None
   mailbox = None
 
-  def __init__(self, imap_server, imap_user, imap_pass, imap_mailbox):
-    self.imap_server = imap_server
-    self.imap_user = imap_user
-    self.imap_pass = imap_pass
-    self.imap_mailbox = imap_mailbox
+  def __init__(self, mb_ref):
+    self.imap_server = mb_ref['imap_server']
+    self.imap_user = mb_ref['imap_user']
+    self.imap_pass = mb_ref['imap_pass']
+    self.imap_mailbox = mb_ref['imap_mailbox']
     try:
       self.mailbox = imaplib.IMAP4(self.imap_server)
       rv, data = self.mailbox.login(self.imap_user, self.imap_pass)
@@ -59,14 +59,14 @@ class IMAPmailbox:
     return results
 
   def get_message(self,imap_uid):
-    rv, data = self.mailbox.uid('FETCH', imap_uid, '(RFC822)')
+    rv, data = self.mailbox.uid('FETCH', str(imap_uid), '(RFC822)')
     if rv != 'OK':
       raise IMAPmailboxException("ERROR getting message: %s", str(imap_uid))
-    return email.message_from_bytes(data[0][1])
+    return data[0][1].decode("utf-8")
 
   def get_attachments(self,imap_uid):
     results = []
-    rv, data = self.mailbox.uid('FETCH', imap_uid, '(RFC822)')
+    rv, data = self.mailbox.uid('FETCH', str(imap_uid), '(RFC822)')
     if rv != 'OK':
       raise IMAPmailboxException("ERROR getting message: %s", str(imap_uid))
     msg = email.message_from_bytes(data[0][1])
@@ -96,5 +96,8 @@ class IMAPmailbox:
       str(message).encode('utf-8')
     )
     if rv != 'OK':
-      raise IMAPmailboxException("ERROR appending message!")
+      raise IMAPmailboxException("ERROR appending message: " + rv)
+  
+  def expunge_message(self,imap_uid):
+    return True
 
