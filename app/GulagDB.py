@@ -10,7 +10,6 @@ class GulagDB:
   conn = None
   uri_prefixes = None
 
-#  def __init__(self, server, user, password, name, uri_prefixes):
   def __init__(self, args, uri_prefixes):
     try:
       if 'unix_socket' in args:
@@ -114,7 +113,11 @@ class GulagDB:
   def get_quarmails(self):
     try:
       cursor = self.conn.cursor()
-      cursor.execute("select * from QuarMails;")
+#      cursor.execute("select * from QuarMails;")
+      query = "select *,(select count(*) from QuarMail2Attachment"
+      query += " where QuarMails.id=QuarMail2Attachment.quarmail_id) as attach_count"
+      query += " from QuarMails;"
+      cursor.execute(query)
       results = []
       data = cursor.fetchall()
       if not data:
@@ -138,7 +141,10 @@ class GulagDB:
     try:
       cursor = self.conn.cursor()
       # TODO: build SQL query by args
-      query = "select * from QuarMails where id='" + args['id'] + "';"
+      #query = "select * from QuarMails where id='" + args['id'] + "';"
+      query = "select *,(select count(*) from QuarMail2Attachment"
+      query += " where QuarMails.id=QuarMail2Attachment.quarmail_id) as attach_count"
+      query += " from QuarMails where QuarMails.id="+ str(args['id']) +";"
       cursor.execute(query)
       data = cursor.fetchall()
       if not data:
@@ -153,6 +159,10 @@ class GulagDB:
         else:
           dict[name[0]] = value
       dict['href'] = self.uri_prefixes['quarmails'] + str(dict['id'])
+      try:
+        dict['attachments'] = self.get_attachments_by_quarmail(args['id'])
+      except GulagDBException as e:
+        pass
       return QuarMail(dict).__dict__
     except mariadb.Error as e:
       raise GulagDBException(e) from e
@@ -160,7 +170,8 @@ class GulagDB:
   def get_deprecated_mails(self,retention_period):
     try:
       cursor = self.conn.cursor()
-      query = "select ctime,mailbox_id,imap_uid from QuarMails where ctime < date_sub(NOW(), INTERVAL "+ retention_period +");"
+      query = "select ctime,mailbox_id,imap_uid from QuarMails"
+      query += " where ctime < date_sub(NOW(), INTERVAL "+ str(retention_period) +");"
       cursor.execute(query)
       results = []
       data = cursor.fetchall()
@@ -186,7 +197,47 @@ class GulagDB:
       return cursor.lastrowid
     except mariadb.Error as e:
       raise GulagDBException(e) from e
-
+  
+  def get_attachment(self, args):
+    try:
+      cursor = self.conn.cursor()
+      cursor.execute("select * from Attachments where id=" + str(args['id']) + ";")
+      data = cursor.fetchall()
+      if not data:
+        raise GulagDBException("Attachment("+ str(args['id']) +") does not exist!")
+      desc = cursor.description
+      tuple = data[0]
+      dict = {}
+      for (name, value) in zip(desc, tuple):
+        dict[name[0]] = value
+      dict['href'] = self.uri_prefixes['attachments'] + str(dict['id'])
+      return Attachment(dict).__dict__
+    except mariadb.Error as e:
+      raise GulagDBException(e) from e
+  
+  def get_attachments_by_quarmail(self,quarmail_id):
+    try:
+      query = "select Attachments.* from QuarMail2Attachment"
+      query += " left join QuarMails ON QuarMails.id = QuarMail2Attachment.quarmail_id"
+      query += " left join Attachments ON Attachments.id = QuarMail2Attachment.attachment_id"
+      query += " where QuarMails.id = " + str(quarmail_id) + ";"
+      cursor = self.conn.cursor()
+      cursor.execute(query)
+      results = []
+      data = cursor.fetchall()
+      if not data:
+        raise GulagDBException("QuarMail("+ str(quarmail_id) +") has no attachments!")
+      desc = cursor.description
+      for tuple in data:
+        dict = {}
+        for (name, value) in zip(desc, tuple):
+          dict[name[0]] = value
+        dict['href'] = self.uri_prefixes['attachments'] + str(dict['id'])
+        results.append(Attachment(dict).__dict__)
+      return results
+    except mariadb.Error as e:
+      raise GulagDBException(e) from e
+  
   def quarmail2attachment(self,quarmail_id,attachment_id):
     try:
       cursor = self.conn.cursor()

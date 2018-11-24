@@ -96,6 +96,8 @@ class QuarMail:
   imap_uid = None
   msg_size = None
   href = None
+  attach_count = None
+  attachments = None
 
   def __init__(self,qm_ref):
     if 'id' not in qm_ref:
@@ -136,6 +138,10 @@ class QuarMail:
     self.msg_size = qm_ref['msg_size']
     if 'href' in qm_ref:
       self.href = qm_ref['href']
+    if 'attach_count' in qm_ref:
+      self.attach_count = qm_ref['attach_count']
+    if 'attachments' in qm_ref:
+      self.attachments = qm_ref['attachments']
 
 
 class AttachmentException(Exception):

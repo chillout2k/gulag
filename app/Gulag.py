@@ -39,9 +39,9 @@ class Gulag:
       except IMAPmailboxException as e:
         print(e.message)
         continue
-      quarmail_ids = []
-      attachments = []
       for unseen in imap_mb.get_unseen_messages():
+        quarmail_ids = []
+        attachments = []
         uid = unseen['imap_uid']
         msg = unseen['msg']
         msg_size = len(str(msg))
@@ -113,13 +113,14 @@ class Gulag:
             attachments.append(attach_id)
           # Ende if part.get_filename()
         # Ende for msg.walk()
+        # QuarMails und Attachments verknüpfen
+        if(len(attachments) > 0):
+          for quarmail_id in quarmail_ids:
+            for attachment_id in attachments:
+              self.db.quarmail2attachment(str(quarmail_id), str(attachment_id))
       # Ende for(unseen)
       imap_mb.close()
-      # QuarMails und Attachments verknüpfen
-      if(len(attachments) > 0):
-        for quarmail_id in quarmail_ids:
-          for attachment_id in attachments:
-            self.db.quarmail2attachment(str(quarmail_id), str(attachment_id))
+      
     # Ende for get_mailboxes
 
   def cleanup_quarmails(self):
@@ -144,13 +145,12 @@ class Gulag:
   def get_quarmail(self,args):
     qm_db = None
     try:
-      qm_db = self.db.get_quarmail({
-        "id": args['id']
-      })
+      qm_db = self.db.get_quarmail({"id": args['id']})
     except GulagDBException as e:
       raise GulagException("GulagDBException: " + e.message) from e
     if 'rfc822_message' not in args:
       return qm_db
+    # pull full RFC822 message from mailbox
     mailbox = None
     try:
       mailbox = self.db.get_mailbox(qm_db['mailbox_id'])
@@ -164,6 +164,14 @@ class Gulag:
     except IMAPmailboxException as e:
       print(e.message)
       raise GulagException(e.message) from e
+
+  def get_attachment(self,args):
+    at_db = None
+    try:
+      at_db = self.db.get_attachment({"id": args['id']})
+      return at_db
+    except GulagDBException as e:
+      raise GulagException(e.message) from e
   
   def rspamd_http2imap(self,mailbox_id):
     mailbox = None
@@ -171,10 +179,12 @@ class Gulag:
       mailbox = self.db.get_mailbox(mailbox_id)
     except GulagDBException as e:
       raise GulagException(e.message) from e
-
+    # check if the request comes really from rspamd´s metadata_exporter
+    # default metadata_header prefix 'X-Rspamd' will be expected
     if(request.headers.get('X-Rspamd-From') == None):
       raise GulagException("Missing Rspamd-specific headers (e.g. X-Rspamd-From)!")
-    # recompose rejected mail that will be sent to quarantine mailbox
+    # Prepend gulag-specific headers to rejected mail 
+    # before pushing into quarantine mailbox
     msg = None
     try:
       rcpts_hdr = ""
@@ -184,35 +194,33 @@ class Gulag:
         else:
           rcpts_hdr = rcpt
       msg = "Return-Path: <" + request.headers.get('X-Rspamd-From') + ">\r\n"
-      msg = msg + "Received: from rspamd_http2imap relay by gulag-mailbox " + mailbox_id + "\r\n"
-      msg = msg + "X-Envelope-To-Blocked: " + rcpts_hdr + "\r\n"
-      msg = msg + "X-Spam-Status: " + request.headers.get('X-Rspamd-Symbols') + "\r\n"
-      msg = msg + "X-Spam-QID: " + request.headers.get('X-Rspamd-Qid') + "\r\n"
-      msg = msg + request.get_data(as_text=True)
-#FIXME:   except email.errors.* as e:
+      msg += "Received: from rspamd_http2imap relay by gulag-mailbox " + mailbox_id + "\r\n"
+      msg += "X-Envelope-To-Blocked: " + rcpts_hdr + "\r\n"
+      msg += "X-Spam-Status: " + request.headers.get('X-Rspamd-Symbols') + "\r\n"
+      msg += "X-Spam-QID: " + request.headers.get('X-Rspamd-Qid') + "\r\n"
+      # append original mail
+      msg += request.get_data(as_text=True)
     except:
       raise GulagException(str(sys.exc_info()))
-    
-    # Use IMAP´s APPEND command to store the message into mailbox
     imap_mb = None
     try:
       imap_mb = IMAPmailbox(mailbox)
       imap_mb.append_message(msg)
     except IMAPmailboxException as e:
       raise GulagException(e.message) from e
+
+#  def send_mail(self,args):
 #    try:
-#      if not mailbox['smtp_server']:
-#        raise GulagException("No SMTP server configured for mailbox " + mailbox_id)
 #      # FIXME: SMTP tranaport security and authentication!
-#      with SMTP(host=mailbox['smtp_server'],port=mailbox['smtp_port']) as smtp:
-#        try:
-#          smtp.sendmail(
-#            request.headers.get('X-Rspamd-From'),
-#            mailbox_id,
-#            msg
-#          )
-#        except (SMTPRecipientsRefused,SMTPHeloError,SMTPSenderRefused,SMTPDataError) as e:
-#          raise GulagException(str(e)) from e
+#     # with SMTP(host=mailbox['smtp_server'],port=mailbox['smtp_port']) as smtp:
+#     #   try:
+#     #     smtp.sendmail(
+#     #       request.headers.get('X-Rspamd-From'),
+#     #       mailbox_id,
+#     #       msg
+#     #     )
+#     #   except (SMTPRecipientsRefused,SMTPHeloError,SMTPSenderRefused,SMTPDataError) as e:
+#     #     raise GulagException(str(e)) from e
 #    except TimeoutError as e:
 #      raise GulagException(str(e)) from e
 

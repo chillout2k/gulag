@@ -65,7 +65,11 @@ class ResAttachments(GulagResource):
 
 class ResAttachment(GulagResource):
   def get(self,id):
-    return {"resource": "Attachment by ID"}
+    args = {"id": id}
+    try:
+      return self.gulag.get_attachment(args)
+    except GulagException as e:
+      abort(400, message=e.message)
 
 class ResRSPAMDImporter(GulagResource):
   def post(self,mailbox_id):
