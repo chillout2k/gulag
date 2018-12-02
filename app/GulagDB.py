@@ -113,7 +113,6 @@ class GulagDB:
   def get_quarmails(self):
     try:
       cursor = self.conn.cursor()
-#      cursor.execute("select * from QuarMails;")
       query = "select *,(select count(*) from QuarMail2Attachment"
       query += " where QuarMails.id=QuarMail2Attachment.quarmail_id) as attach_count"
       query += " from QuarMails;"
@@ -159,10 +158,10 @@ class GulagDB:
         else:
           dict[name[0]] = value
       dict['href'] = self.uri_prefixes['quarmails'] + str(dict['id'])
-      try:
-        dict['attachments'] = self.get_attachments_by_quarmail(args['id'])
-      except GulagDBException as e:
-        pass
+#      try:
+#        dict['attachments'] = self.get_attachments_by_quarmail(args['id'])
+#      except GulagDBException as e:
+#        pass
       return QuarMail(dict).__dict__
     except mariadb.Error as e:
       raise GulagDBException(e) from e
@@ -191,17 +190,46 @@ class GulagDB:
     try:
       cursor = self.conn.cursor()
       cursor.execute("insert into Attachments " +
-        "(filename, content_type) values (%s,%s)",
-        (attach['filename'], attach['content_type'])
+        "(filename, content_type, content_encoding) values (%s,%s,%s)",
+        (attach['filename'], attach['content_type'], attach['content_encoding'])
       )
       return cursor.lastrowid
+    except mariadb.Error as e:
+      raise GulagDBException(e) from e
+ 
+  def get_attachments(self):
+    try:
+      query = "select Attachments.*,QuarMails.mailbox_id,QuarMails.imap_uid"
+      query += " from QuarMail2Attachment" 
+      query += " left join QuarMails ON QuarMails.id = QuarMail2Attachment.quarmail_id"
+      query += " left join Attachments ON Attachments.id = QuarMail2Attachment.attachment_id"
+      query += " group by id;"
+      cursor = self.conn.cursor()
+      cursor.execute(query)
+      results = []
+      data = cursor.fetchall()
+      if not data:
+        raise GulagDBException("No attachments found!")
+      desc = cursor.description
+      for tuple in data:
+        dict = {}
+        for (name, value) in zip(desc, tuple):
+          dict[name[0]] = value
+        dict['href'] = self.uri_prefixes['attachments'] + str(dict['id'])
+        results.append(Attachment(dict).__dict__)
+      return results
     except mariadb.Error as e:
       raise GulagDBException(e) from e
   
   def get_attachment(self, args):
     try:
       cursor = self.conn.cursor()
-      cursor.execute("select * from Attachments where id=" + str(args['id']) + ";")
+      query = "select Attachments.*,QuarMails.mailbox_id,QuarMails.imap_uid"
+      query += " from QuarMail2Attachment" 
+      query += " left join QuarMails ON QuarMails.id = QuarMail2Attachment.quarmail_id"
+      query += " left join Attachments ON Attachments.id = QuarMail2Attachment.attachment_id"
+      query += " where id=" + str(args['id']) + ";"
+      cursor.execute(query)
       data = cursor.fetchall()
       if not data:
         raise GulagDBException("Attachment("+ str(args['id']) +") does not exist!")
@@ -215,9 +243,10 @@ class GulagDB:
     except mariadb.Error as e:
       raise GulagDBException(e) from e
   
-  def get_attachments_by_quarmail(self,quarmail_id):
+  def get_quarmail_attachments(self,quarmail_id):
     try:
-      query = "select Attachments.* from QuarMail2Attachment"
+      query = "select Attachments.*,QuarMails.mailbox_id,QuarMails.imap_uid"
+      query += " from QuarMail2Attachment"
       query += " left join QuarMails ON QuarMails.id = QuarMail2Attachment.quarmail_id"
       query += " left join Attachments ON Attachments.id = QuarMail2Attachment.attachment_id"
       query += " where QuarMails.id = " + str(quarmail_id) + ";"
@@ -232,11 +261,39 @@ class GulagDB:
         dict = {}
         for (name, value) in zip(desc, tuple):
           dict[name[0]] = value
-        dict['href'] = self.uri_prefixes['attachments'] + str(dict['id'])
+        dict['href'] = self.uri_prefixes['quarmails'] + str(quarmail_id) 
+        dict['href'] += "/attachments/" + str(dict['id'])
         results.append(Attachment(dict).__dict__)
       return results
     except mariadb.Error as e:
       raise GulagDBException(e) from e
+
+  def get_quarmail_attachment(self,quarmail_id,attachment_id):
+    try:
+      query = "select Attachments.*,QuarMails.mailbox_id,QuarMails.imap_uid"
+      query += " from QuarMail2Attachment"
+      query += " left join QuarMails ON QuarMails.id = QuarMail2Attachment.quarmail_id"
+      query += " left join Attachments ON Attachments.id = QuarMail2Attachment.attachment_id"
+      query += " where QuarMails.id = " + str(quarmail_id)
+      query += " and Attachments.id = " + str(attachment_id) + ";"
+      cursor = self.conn.cursor()
+      cursor.execute(query)
+      data = cursor.fetchall()
+      if not data:
+        raise GulagDBException("QuarMail("+ str(quarmail_id) +") "
+          + "has no attachment (" + str(attachment_id) + ")!"
+        )
+      desc = cursor.description
+      tuple = data[0]
+      dict = {}
+      for (name, value) in zip(desc, tuple):
+        dict[name[0]] = value
+      dict['href'] = self.uri_prefixes['quarmails'] + str(quarmail_id)
+      dict['href'] += "/attachments/" + str(dict['id'])
+      return Attachment(dict).__dict__
+    except mariadb.Error as e:
+      raise GulagDBException(e) from e
+
   
   def quarmail2attachment(self,quarmail_id,attachment_id):
     try:

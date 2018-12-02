@@ -43,8 +43,8 @@ class Gulag:
         quarmail_ids = []
         attachments = []
         uid = unseen['imap_uid']
-        msg = unseen['msg']
-        msg_size = len(str(msg))
+        msg = email.message_from_bytes(unseen['msg'])
+        msg_size = len(msg)
         r5321_from = email.header.decode_header(msg['Return-Path'])[0][0]
         if(r5321_from is not '<>'):
           r5321_from = r5321_from.replace("<","")
@@ -92,6 +92,7 @@ class Gulag:
             'hdr_msgid': msg_id, 'hdr_date': date, 'cf_meta': 'cf_meta',
             'mailbox_id': 'quarantine@zwackl.de', 'imap_uid': uid, 'msg_size': msg_size
           })
+          print("QuarMail (%s) imported" % (quarmail_id))
           quarmail_ids.append(quarmail_id)
         # Ende for rcpts
         # Alle MIME-Parts durchiterieren und Attachments
@@ -108,12 +109,13 @@ class Gulag:
               filename = filename[0][0]
             attach_id = self.db.add_attachment({
               'filename': filename,
-              'content_type': part.get_content_type()
+              'content_type': part.get_content_type(),
+              'content_encoding': part['Content-Transfer-Encoding']
             })
             attachments.append(attach_id)
           # Ende if part.get_filename()
         # Ende for msg.walk()
-        # QuarMails und Attachments verknüpfen
+        # QuarMail und Attachments verknüpfen
         if(len(attachments) > 0):
           for quarmail_id in quarmail_ids:
             for attachment_id in attachments:
@@ -145,12 +147,12 @@ class Gulag:
   def get_quarmail(self,args):
     qm_db = None
     try:
-      qm_db = self.db.get_quarmail({"id": args['id']})
+      qm_db = self.db.get_quarmail({"id": args['quarmail_id']})
     except GulagDBException as e:
       raise GulagException("GulagDBException: " + e.message) from e
     if 'rfc822_message' not in args:
       return qm_db
-    # pull full RFC822 message from mailbox
+    # pull full RFC822 message from IMAP mailbox
     mailbox = None
     try:
       mailbox = self.db.get_mailbox(qm_db['mailbox_id'])
@@ -159,8 +161,43 @@ class Gulag:
     imap_mb = None
     try:
       imap_mb = IMAPmailbox(mailbox)
-      qm_db['rfc822_message'] = imap_mb.get_message(qm_db['imap_uid'])
+      qm_db['rfc822_message'] = imap_mb.get_message(qm_db['imap_uid']).decode("utf-8")
       return qm_db
+    except IMAPmailboxException as e:
+      print(e.message)
+      raise GulagException(e.message) from e
+
+  def get_quarmail_attachments(self,args):
+    try:
+      return self.db.get_quarmail_attachments(args['quarmail_id'])
+    except GulagDBException as e:
+      print(e.message)
+      raise GulagException(e.message) from e
+  
+  def get_quarmail_attachment(self,args):
+    qmat_db = None
+    try:
+      qmat_db = self.db.get_quarmail_attachment(
+        args['quarmail_id'],args['attachment_id']
+      )
+    except GulagDBException as e:
+      print(e.message)
+      raise GulagException(e.message) from e
+    if 'data' not in args:
+      return qmat_db
+    # pull attachment from IMAP mailbox
+    mailbox = None
+    try:
+      mailbox = self.db.get_mailbox(qmat_db['mailbox_id'])
+    except GulagDBException as e:
+      raise GulagException(e.message) from e 
+    imap_mb = None
+    try:
+      imap_mb = IMAPmailbox(mailbox)
+      qmat_db['data'] = imap_mb.get_attachment(
+        qmat_db['imap_uid'],qmat_db['filename']
+      )
+      return qmat_db
     except IMAPmailboxException as e:
       print(e.message)
       raise GulagException(e.message) from e
@@ -169,9 +206,10 @@ class Gulag:
     at_db = None
     try:
       at_db = self.db.get_attachment({"id": args['id']})
-      return at_db
     except GulagDBException as e:
       raise GulagException(e.message) from e
+    if 'data' not in args:
+      return at_db
   
   def rspamd_http2imap(self,mailbox_id):
     mailbox = None

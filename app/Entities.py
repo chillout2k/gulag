@@ -97,7 +97,6 @@ class QuarMail:
   msg_size = None
   href = None
   attach_count = None
-  attachments = None
 
   def __init__(self,qm_ref):
     if 'id' not in qm_ref:
@@ -140,9 +139,6 @@ class QuarMail:
       self.href = qm_ref['href']
     if 'attach_count' in qm_ref:
       self.attach_count = qm_ref['attach_count']
-    if 'attachments' in qm_ref:
-      self.attachments = qm_ref['attachments']
-
 
 class AttachmentException(Exception):
   message = None
@@ -153,7 +149,10 @@ class Attachment:
   id = None
   filename = None
   content_type = None
+  content_encoding = None
   comment = None
+  mailbox_id = None
+  imap_uid = None
   href = None
 
   def __init__(self,at_ref):
@@ -166,8 +165,16 @@ class Attachment:
     if 'content_type' not in at_ref:
       raise AttachmentException("'content_type' is mandatory!")
     self.content_type = at_ref['content_type']
+    if 'content_encoding' in at_ref:
+      self.content_encoding = at_ref['content_encoding']
     if 'comment' in at_ref:
       self.comment = at_ref['comment']
+    if 'mailbox_id' not in at_ref:
+      raise AttachmentException("'mailbox_id' is mandatory!")
+    self.mailbox_id = at_ref['mailbox_id']
+    if 'imap_uid' not in at_ref:
+      raise AttachmentException("'imap_uid' is mandatory!")
+    self.imap_uid = at_ref['imap_uid']
     if 'href' in at_ref:
       self.href = at_ref['href']
 

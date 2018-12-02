@@ -20,7 +20,9 @@ if(importer_pid == 0):
     try:
       gulag.import_quarmails()
     except GulagException as e:
-      print("Importer-Exception: " + e.message)
+      print("Importer-Exception: " + e.message, file=sys.stderr)
+    except:
+      print("Importer-Exception: " + str(sys.exc_info()),file=sys.stderr)
     time.sleep(gulag.config['importer']['interval'])
 
 cleaner_pid = os.fork()
@@ -36,6 +38,8 @@ if(cleaner_pid == 0):
       gulag.cleanup_quarmails()
     except GulagException as e:
       print("Cleaner-Exception: " + e.message)
+    except:
+      print("Cleaner-Exception: " + str(sys.exc_info()),file=sys.stderr)
     time.sleep(gulag.config['cleaner']['interval'])
  
 # Parent
@@ -46,7 +50,7 @@ try:
   while True:
     time.sleep(10)
 except:
-  print("MAIN-EXCEPTION: " + str(sys.exc_info()))
+  print("Helpers MAIN-EXCEPTION: " + str(sys.exc_info()))
   # Destroy childs
   for child_pid in child_pids:
     print("Killing child pid: %s", child_pid)

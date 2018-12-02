@@ -50,12 +50,35 @@ class ResQuarMails(GulagResource):
       abort(400, message=e.message)
 
 class ResQuarMail(GulagResource):
-  def get(self,id):
-    args = {"id": id}
+  def get(self,quarmail_id):
+    args = {"quarmail_id": quarmail_id}
     try:
       if(request.args.get('rfc822_message')):
         args['rfc822_message'] = True
       return self.gulag.get_quarmail(args)
+    except GulagException as e:
+      abort(400, message=e.message)
+
+class ResQuarMailAttachments(GulagResource):
+  def get(self,quarmail_id):
+    args = {"quarmail_id": quarmail_id}
+    if(request.args.get('data')):
+      args['data'] = True
+    try:
+      return self.gulag.get_quarmail_attachments(args)
+    except GulagException as e:
+      abort(400, message=e.message)
+
+class ResQuarMailAttachment(GulagResource):
+  def get(self,quarmail_id,attachment_id):
+    args = {
+      "quarmail_id": quarmail_id,
+      "attachment_id": attachment_id
+    }
+    if(request.args.get('data')):
+      args['data'] = True
+    try:
+      return self.gulag.get_quarmail_attachment(args)
     except GulagException as e:
       abort(400, message=e.message)
 
@@ -64,8 +87,8 @@ class ResAttachments(GulagResource):
     return {"resource": "Attachments"}
 
 class ResAttachment(GulagResource):
-  def get(self,id):
-    args = {"id": id}
+  def get(self,attachment_id):
+    args = {"id": attachment_id}
     try:
       return self.gulag.get_attachment(args)
     except GulagException as e:

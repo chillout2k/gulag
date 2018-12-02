@@ -9,6 +9,7 @@ class IMAPmailboxException(Exception):
     self.message = str(message)
 
 class IMAPmailbox:
+  email_address = None
   imap_server = None
   imap_user = None
   imap_pass = None
@@ -16,6 +17,7 @@ class IMAPmailbox:
   mailbox = None
 
   def __init__(self, mb_ref):
+    self.email_address = mb_ref['email_address']
     self.imap_server = mb_ref['imap_server']
     self.imap_user = mb_ref['imap_user']
     self.imap_pass = mb_ref['imap_pass']
@@ -54,7 +56,7 @@ class IMAPmailbox:
         continue
       results.append({
         'imap_uid': uid,
-        'msg': email.message_from_bytes(data[0][1])
+        'msg': data[0][1]
       })
     return results
 
@@ -62,31 +64,29 @@ class IMAPmailbox:
     rv, data = self.mailbox.uid('FETCH', str(imap_uid), '(RFC822)')
     if rv != 'OK':
       raise IMAPmailboxException("ERROR getting message: %s", str(imap_uid))
-    return data[0][1].decode("utf-8")
+    return data[0][1]
 
-  def get_attachments(self,imap_uid):
-    results = []
-    rv, data = self.mailbox.uid('FETCH', str(imap_uid), '(RFC822)')
-    if rv != 'OK':
-      raise IMAPmailboxException("ERROR getting message: %s", str(imap_uid))
-    msg = email.message_from_bytes(data[0][1])
+  def get_attachment(self,imap_uid,filename):
+    msg = email.message_from_bytes(self.get_message(imap_uid))
     for part in msg.walk():
       if part.get_filename():
         # let´s define parts with filename as attachments
-        filename = email.header.decode_header(part.get_filename())
-        if filename[0][1]:
+        part_fn = email.header.decode_header(part.get_filename())
+        if part_fn[0][1]:
           # Encoded -> decode
-          filename = filename[0][0].decode(filename[0][1])
+          part_fn = part_fn[0][0].decode(part_fn[0][1])
         else:
           # not encoded
-          filename = filename[0][0]
-        results.append({
-          'filename': filename,
-          'content-type': part.get_content_type(), 
-          'content': part.get_payload(decode=True)
-        })
+          part_fn = part_fn[0][0]
+        print("C-T-E: " + str(part['Content-Transfer-Encoding']))
+        if(part_fn == filename):
+          return part.get_payload(decode=False)
       # End if part.get_filename()
-    return results
+    # End msg.walk() loop
+    raise IMAPmailboxException(
+      "Attachment ("+ str(filename) +")@IMAP UID(" + str(imap_uid) + ")@" 
+      + str(self.email_address) + " not found!"
+    )
 
   def append_message(self,message):
     rv, data = self.mailbox.append(

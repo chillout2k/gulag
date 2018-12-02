@@ -5,8 +5,9 @@ from flask import Flask
 from flask_restful import Api
 from Gulag import Gulag,GulagException
 from Resources import (ResRoot,ResMailboxes,
-  ResQuarMails,ResQuarMail,ResAttachments,
-  ResAttachment,ResRSPAMDImporter
+  ResQuarMails,ResQuarMail,ResQuarMailAttachments,
+  ResQuarMailAttachment,ResAttachments,ResAttachment,
+  ResRSPAMDImporter
 )
 parser = argparse.ArgumentParser()
 parser.add_argument('--config', required=True, help="Path to config file")
@@ -32,7 +33,15 @@ try:
     resource_class_kwargs={'gulag_object': gulag}
   )
   api.add_resource(ResQuarMail,
-    '/api/v1/quarmails/<string:id>',
+    '/api/v1/quarmails/<int:quarmail_id>',
+    resource_class_kwargs={'gulag_object': gulag}
+  )
+  api.add_resource(ResQuarMailAttachments,
+    '/api/v1/quarmails/<int:quarmail_id>/attachments/',
+    resource_class_kwargs={'gulag_object': gulag}
+  )
+  api.add_resource(ResQuarMailAttachment,
+    '/api/v1/quarmails/<int:quarmail_id>/attachments/<int:attachment_id>',
     resource_class_kwargs={'gulag_object': gulag}
   )
   api.add_resource(ResAttachments,
@@ -40,7 +49,7 @@ try:
     resource_class_kwargs={'gulag_object': gulag}
   )
   api.add_resource(ResAttachment,
-    '/api/v1/attachments/<string:id>',
+    '/api/v1/attachments/<int:attachment_id>',
     resource_class_kwargs={'gulag_object': gulag}
   )
   api.add_resource(ResRSPAMDImporter,
