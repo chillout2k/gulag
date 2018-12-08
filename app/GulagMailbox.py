@@ -2,6 +2,7 @@ import imaplib
 import email
 import email.header
 import time
+from GulagUtils import whoami
 
 class IMAPmailboxException(Exception):
   message = None
@@ -26,17 +27,17 @@ class IMAPmailbox:
       self.mailbox = imaplib.IMAP4(self.imap_server)
       rv, data = self.mailbox.login(self.imap_user, self.imap_pass)
     except imaplib.IMAP4.error as e:
-      raise IMAPmailboxException(
+      raise IMAPmailboxException(whoami(self) +
         "LOGIN FAILED FOR " + self.imap_user + '@' + self.imap_server
       ) from e
     except ConnectionRefusedError as e:
-      raise IMAPmailboxException(
+      raise IMAPmailboxException(whoami(self) +
         self.imap_user + ": IMAP server " + self.imap_server + " refused connection"
       ) from e
     
     rv, data = self.mailbox.select(self.imap_mailbox)
     if rv != 'OK':
-      raise IMAPmailboxException(
+      raise IMAPmailboxException(whoami(self) +
         "ERROR: Unable to select mailbox: " + self.imap_mailbox
       )
 
@@ -63,7 +64,9 @@ class IMAPmailbox:
   def get_message(self,imap_uid):
     rv, data = self.mailbox.uid('FETCH', str(imap_uid), '(RFC822)')
     if rv != 'OK':
-      raise IMAPmailboxException("ERROR getting message: %s", str(imap_uid))
+      raise IMAPmailboxException(whoami(self) + 
+        "ERROR getting message: %s", str(imap_uid)
+      )
     return data[0][1]
 
   def get_attachment(self,imap_uid,filename):
@@ -83,7 +86,7 @@ class IMAPmailbox:
           return part.get_payload(decode=False)
       # End if part.get_filename()
     # End msg.walk() loop
-    raise IMAPmailboxException(
+    raise IMAPmailboxException(whoami(self) +
       "Attachment ("+ str(filename) +")@IMAP UID(" + str(imap_uid) + ")@" 
       + str(self.email_address) + " not found!"
     )
@@ -96,7 +99,9 @@ class IMAPmailbox:
       str(message).encode('utf-8')
     )
     if rv != 'OK':
-      raise IMAPmailboxException("ERROR appending message: " + rv)
+      raise IMAPmailboxException(whoami(self)+
+        "ERROR appending message: " + rv
+      )
   
   def expunge_message(self,imap_uid):
     return True

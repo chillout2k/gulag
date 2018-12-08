@@ -1,9 +1,8 @@
 import json,sys
 import email,email.header,email.message
-from flask import request
-from smtplib import SMTP
 from GulagDB import GulagDB,GulagDBException
 from GulagMailbox import IMAPmailbox,IMAPmailboxException
+from GulagUtils import whoami
 
 class GulagException(Exception):
   message = None
@@ -14,6 +13,7 @@ class Gulag:
   version = None
   config = None
   db = None
+  fields = {}
 
   def __init__(self, path_to_config_file):
     self.version = "VERSION-TODO!"
@@ -22,12 +22,29 @@ class Gulag:
         self.config = json.load(f)
       f.close()
     except:
-      raise GulagException("CONFIG-FILE-Exception: " + str(sys.exc_info()))
-
+      raise GulagException(whoami(self) + str(sys.exc_info()))
     try:
       self.db = GulagDB(self.config['db'],self.config['uri_prefixes'])
+      self.fields['Mailboxes'] = self.db.get_fields('Mailboxes')
+      self.fields['QuarMails'] = self.db.get_fields('QuarMails')
+      self.fields['Attachments'] = self.db.get_fields('Attachments')
     except GulagDBException as e:
-      raise GulagException(e.message) from e
+      raise GulagException(whoami(self) + e.message) from e
+   
+  def check_fields(self,fields_target,args):
+    if fields_target not in self.fields:
+      raise GulagException(
+        whoami(self) + fields_target + " not found in Gulag.fields!"
+      )
+    for arg in args:
+      if(arg == 'query_offset' or arg == 'query_limit' 
+         or arg == 'sort_index' or arg == 'sort_order'):
+        continue
+      if arg not in self.fields[fields_target]:
+        raise GulagException(
+          whoami(self) + arg + " is not a valid field of " 
+          + fields_target + "!"
+        )
 
   # Iterate through all mailboxes, extract metadata
   # from all unseen mails and pump them into database
@@ -122,7 +139,6 @@ class Gulag:
               self.db.quarmail2attachment(str(quarmail_id), str(attachment_id))
       # Ende for(unseen)
       imap_mb.close()
-      
     # Ende for get_mailboxes
 
   def cleanup_quarmails(self):
@@ -136,20 +152,23 @@ class Gulag:
     try:
       return self.db.get_mailboxes()
     except GulagDBException as e:
-      raise GulagException("GulagDBException: " + e.message) from e
+      raise GulagException(whoami(self) + e.message) from e
 
-  def get_quarmails(self):
+  def get_quarmails(self,args):
     try:
-      return self.db.get_quarmails()
-    except GulagDBException as e:
-      raise GulagException("GulagDBException: " + e.message) from e
+      self.check_fields('QuarMails',args)
+      return self.db.get_quarmails(args)
+    except(GulagException,GulagDBException) as e:
+      raise GulagException(
+        whoami(self) + e.message
+      ) from e
   
   def get_quarmail(self,args):
     qm_db = None
     try:
       qm_db = self.db.get_quarmail({"id": args['quarmail_id']})
     except GulagDBException as e:
-      raise GulagException("GulagDBException: " + e.message) from e
+      raise GulagException(whoami(self) + e.message) from e
     if 'rfc822_message' not in args:
       return qm_db
     # pull full RFC822 message from IMAP mailbox
@@ -157,7 +176,7 @@ class Gulag:
     try:
       mailbox = self.db.get_mailbox(qm_db['mailbox_id'])
     except GulagDBException as e:
-      raise GulagException(e.message) from e 
+      raise GulagException(whoami(self) + e.message) from e 
     imap_mb = None
     try:
       imap_mb = IMAPmailbox(mailbox)
@@ -165,14 +184,14 @@ class Gulag:
       return qm_db
     except IMAPmailboxException as e:
       print(e.message)
-      raise GulagException(e.message) from e
+      raise GulagException(whoami(self) + e.message) from e
 
   def get_quarmail_attachments(self,args):
     try:
       return self.db.get_quarmail_attachments(args['quarmail_id'])
     except GulagDBException as e:
       print(e.message)
-      raise GulagException(e.message) from e
+      raise GulagException(whoami(self) + e.message) from e
   
   def get_quarmail_attachment(self,args):
     qmat_db = None
@@ -182,7 +201,7 @@ class Gulag:
       )
     except GulagDBException as e:
       print(e.message)
-      raise GulagException(e.message) from e
+      raise GulagException(whoami(self) + e.message) from e
     if 'data' not in args:
       return qmat_db
     # pull attachment from IMAP mailbox
@@ -190,7 +209,7 @@ class Gulag:
     try:
       mailbox = self.db.get_mailbox(qmat_db['mailbox_id'])
     except GulagDBException as e:
-      raise GulagException(e.message) from e 
+      raise GulagException(whoami(self) + e.message) from e 
     imap_mb = None
     try:
       imap_mb = IMAPmailbox(mailbox)
@@ -200,65 +219,57 @@ class Gulag:
       return qmat_db
     except IMAPmailboxException as e:
       print(e.message)
-      raise GulagException(e.message) from e
+      raise GulagException(whoami(self) + e.message) from e
 
   def get_attachment(self,args):
     at_db = None
     try:
       at_db = self.db.get_attachment({"id": args['id']})
     except GulagDBException as e:
-      raise GulagException(e.message) from e
+      raise GulagException(whoami(self) + e.message) from e
     if 'data' not in args:
       return at_db
-  
-  def rspamd_http2imap(self,mailbox_id):
+
+  def get_uris(self):
+    # https://stackoverflow.com/questions/1792366/extract-urls-out-of-email-in-python
+    return True
+
+  def rspamd_http2imap(self,args):
     mailbox = None
     try:
-      mailbox = self.db.get_mailbox(mailbox_id)
+      mailbox = self.db.get_mailbox(args['mailbox_id'])
     except GulagDBException as e:
-      raise GulagException(e.message) from e
+      raise GulagException(whoami(self) + e.message) from e
     # check if the request comes really from rspamd´s metadata_exporter
     # default metadata_header prefix 'X-Rspamd' will be expected
-    if(request.headers.get('X-Rspamd-From') == None):
-      raise GulagException("Missing Rspamd-specific headers (e.g. X-Rspamd-From)!")
-    # Prepend gulag-specific headers to rejected mail 
+    if('X-Rspamd-From' not in args['req_headers']):
+      raise GulagException(whoami(self) 
+        + "Missing Rspamd-specific headers (e.g. X-Rspamd-From)!"
+      )
+    # Prepend Gulag-specific headers to rejected mail 
     # before pushing into quarantine mailbox
     msg = None
     try:
       rcpts_hdr = ""
-      for rcpt in json.loads(str(request.headers.get('X-Rspamd-Rcpt'))):
+      for rcpt in json.loads(str(args['req_headers']['X-Rspamd-Rcpt'])):
         if(len(rcpts_hdr) > 0):
-          rcpts_hdr = rcpts_hdr + "," + rcpt
+          rcpts_hdr += "," + rcpt
         else:
           rcpts_hdr = rcpt
-      msg = "Return-Path: <" + request.headers.get('X-Rspamd-From') + ">\r\n"
-      msg += "Received: from rspamd_http2imap relay by gulag-mailbox " + mailbox_id + "\r\n"
+      msg = "Return-Path: <" + args['req_headers']['X-Rspamd-From'] + ">\r\n"
+      msg += "Received: from rspamd_http2imap relay by gulag-mailbox " 
+      msg += args['mailbox_id'] + "\r\n"
       msg += "X-Envelope-To-Blocked: " + rcpts_hdr + "\r\n"
-      msg += "X-Spam-Status: " + request.headers.get('X-Rspamd-Symbols') + "\r\n"
-      msg += "X-Spam-QID: " + request.headers.get('X-Rspamd-Qid') + "\r\n"
+      msg += "X-Spam-Status: " + args['req_headers']['X-Rspamd-Symbols'] + "\r\n"
+      msg += "X-Spam-QID: " + args['req_headers']['X-Rspamd-Qid'] + "\r\n"
       # append original mail
-      msg += request.get_data(as_text=True)
+      msg += args['rfc822_message']
     except:
-      raise GulagException(str(sys.exc_info()))
+      raise GulagException(whoami(self) + str(sys.exc_info()))
     imap_mb = None
     try:
       imap_mb = IMAPmailbox(mailbox)
       imap_mb.append_message(msg)
     except IMAPmailboxException as e:
-      raise GulagException(e.message) from e
-
-#  def send_mail(self,args):
-#    try:
-#      # FIXME: SMTP tranaport security and authentication!
-#     # with SMTP(host=mailbox['smtp_server'],port=mailbox['smtp_port']) as smtp:
-#     #   try:
-#     #     smtp.sendmail(
-#     #       request.headers.get('X-Rspamd-From'),
-#     #       mailbox_id,
-#     #       msg
-#     #     )
-#     #   except (SMTPRecipientsRefused,SMTPHeloError,SMTPSenderRefused,SMTPDataError) as e:
-#     #     raise GulagException(str(e)) from e
-#    except TimeoutError as e:
-#      raise GulagException(str(e)) from e
+      raise GulagException(whoami(self) + e.message) from e
 

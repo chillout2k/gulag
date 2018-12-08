@@ -1,5 +1,10 @@
 import mysql.connector as mariadb
-from Entities import Mailbox,MailboxException,QuarMail,QuarMailException,Attachment,AttachmentException
+from Entities import(
+  Mailbox,MailboxException,QuarMail,
+  QuarMailException,Attachment,
+  AttachmentException
+)
+from GulagUtils import whoami
 
 class GulagDBException(Exception):
   message = None
@@ -30,10 +35,69 @@ class GulagDB:
         )
       self.uri_prefixes = uri_prefixes
     except mariadb.Error as e:
-      raise GulagDBException(e) from e
+      raise GulagDBException(whoami(self) + e) from e
 
   def close(self):
     self.conn.close()
+ 
+  def get_fields(self,table_name):
+    try:
+      cursor = self.conn.cursor()
+      query = "describe " + str(table_name) + ";"
+      cursor.execute(query)
+      data = cursor.fetchall()
+      if not data:
+        raise GulagDBException(whoami(self) 
+          + "describe " + table_name + " failed!"
+        )
+      desc = cursor.description
+      cursor.close()
+      results = {}
+      for tuple in data:
+        for (name, value) in zip(desc, tuple):
+          if(name[0] == "Field"):
+            results[value] = True
+      return results
+    except mariadb.Error as e:
+      raise GulagDBException(whoami(self) + e) from e
+
+  def get_limit_clause(self,args):
+    if('query_offset' in args and 'query_limit' in args): 
+      try:
+        int(args['query_offset'])
+      except ValueError:
+        raise GulagDBException(whoami(self) + "query_offset must be numeric!")
+      try:
+        int(args['query_limit'])
+      except ValueError:
+        raise GulagDBException(whoami(self) + "query_limit must be numeric!")
+      return "limit "+args['query_offset']+","+args['query_limit']
+    elif('query_offset' in args and 'query_limit' not in args):
+      raise GulagDBException(whois(self) + 
+        "query_offset without query_limit is useless!"
+      )
+    elif('query_limit' in args and 'query_offset' not in args):
+      try:
+        int(args['query_limit'])
+      except ValueError:
+        raise GulagDBException(whoami(self) + "query_limit must be numeric!")
+      return "limit " + args['query_limit']
+    else:
+      return ""
+
+  def get_where_clause(self,args):
+    where_clause = ""
+    cnt = 0
+    for arg in args:
+      if(arg == 'query_offset' or arg == 'query_limit'
+         or arg == 'sort_index' or arg == 'sort_order'):
+        continue
+      if(cnt == 0):
+        where_clause += "where " + arg + "='" + args[arg] + "' "
+      else:
+        where_clause += "and " + arg + "='" + args[arg] + "' "
+      cnt += 1
+    return where_clause
 
   def get_mailboxes(self):
     try:
@@ -42,7 +106,7 @@ class GulagDB:
       results = []
       data = cursor.fetchall()
       if not data:
-        raise GulagDBException("No mailboxes found in DB!")
+        raise GulagDBException(whoami(self) + "No mailboxes found in DB!")
       desc = cursor.description
       for tuple in data:
         dict = {}
@@ -56,7 +120,7 @@ class GulagDB:
           continue
       return results
     except mariadb.Error as e:
-      raise GulagDBException(e) from e
+      raise GulagDBException(whoami(self) + e) from e
 
   def get_mailbox(self,mailbox_id):
     try:
@@ -66,7 +130,9 @@ class GulagDB:
       )
       data = cursor.fetchall()
       if not data:
-        raise GulagDBException("Mailbox '" + mailbox_id + "' does not exist!")
+        raise GulagDBException(whoami(self)
+          + "Mailbox '" + mailbox_id + "' does not exist!"
+        )
       desc = cursor.description
       tuple = data[0]
       dict = {}
@@ -76,10 +142,10 @@ class GulagDB:
       try:
         return Mailbox(dict).__dict__
       except MailboxException as e:
-        raise GulagDBException(e.message) from e
+        raise GulagDBException(whoami(self) + e.message) from e
     except mariadb.Error as e:
-      raise GulagDBException(e) from e
-
+      raise GulagDBException(whoami(self) + e) from e
+ 
   def add_quarmail(self, quarmail):
     try:
       cursor = self.conn.cursor()
@@ -99,7 +165,7 @@ class GulagDB:
       cursor.close()
       return id
     except mariadb.Error as e:
-      raise GulagDBException(e) from e
+      raise GulagDBException(whoami(self) + e) from e
 
   def del_quarmail(self, id):
     try:
@@ -108,19 +174,20 @@ class GulagDB:
       cursor.close()
       return True
     except mariadb.Error as e:
-      raise GulagDBException(e) from e
+      raise GulagDBException(whoami(self) + e) from e
 
-  def get_quarmails(self):
-    try:
+  def get_quarmails(self,args):
+    try: 
       cursor = self.conn.cursor()
       query = "select *,(select count(*) from QuarMail2Attachment"
       query += " where QuarMails.id=QuarMail2Attachment.quarmail_id) as attach_count"
-      query += " from QuarMails;"
+      query += " from QuarMails " + self.get_where_clause(args)
+      query += " " + self.get_limit_clause(args) + " ;"
       cursor.execute(query)
       results = []
       data = cursor.fetchall()
       if not data:
-        raise GulagDBException("No Quarmails found in DB!")
+        raise GulagDBException(whoami(self) + "No QuarMails found in DB!")
       desc = cursor.description
       cursor.close()
       for tuple in data:
@@ -133,8 +200,10 @@ class GulagDB:
         dict['href'] = self.uri_prefixes['quarmails'] + str(dict['id'])
         results.append(QuarMail(dict).__dict__)
       return results
+    except GulagDBException as e:
+      raise GulagDBException(whoami(self) + e.message) from e
     except mariadb.Error as e:
-      raise GulagDBException(e) from e
+      raise GulagDBException(whoami(self) + e) from e
 
   def get_quarmail(self,args):
     try:
@@ -147,7 +216,9 @@ class GulagDB:
       cursor.execute(query)
       data = cursor.fetchall()
       if not data:
-        raise GulagDBException("Quarmail with id '"+ args['id'] + "' does not exist!")
+        raise GulagDBException(whoami(self)
+          + "Quarmail with id '"+ args['id'] + "' does not exist!"
+        )
       desc = cursor.description
       cursor.close()
       tuple = data[0]
@@ -164,7 +235,7 @@ class GulagDB:
 #        pass
       return QuarMail(dict).__dict__
     except mariadb.Error as e:
-      raise GulagDBException(e) from e
+      raise GulagDBException(whoami(self) + e) from e
 
   def get_deprecated_mails(self,retention_period):
     try:
@@ -184,7 +255,7 @@ class GulagDB:
         results.append(dict)
       return results
     except mariadb.Error as e:
-      raise GulagDBException(e) from e
+      raise GulagDBException(whoami(self) + e) from e
 
   def add_attachment(self, attach):
     try:
@@ -195,7 +266,7 @@ class GulagDB:
       )
       return cursor.lastrowid
     except mariadb.Error as e:
-      raise GulagDBException(e) from e
+      raise GulagDBException(whoami(self) + e) from e
  
   def get_attachments(self):
     try:
@@ -209,7 +280,7 @@ class GulagDB:
       results = []
       data = cursor.fetchall()
       if not data:
-        raise GulagDBException("No attachments found!")
+        raise GulagDBException(whoami(self) + "No attachments found!")
       desc = cursor.description
       for tuple in data:
         dict = {}
@@ -219,7 +290,7 @@ class GulagDB:
         results.append(Attachment(dict).__dict__)
       return results
     except mariadb.Error as e:
-      raise GulagDBException(e) from e
+      raise GulagDBException(whoami(self) + e) from e
   
   def get_attachment(self, args):
     try:
@@ -232,7 +303,9 @@ class GulagDB:
       cursor.execute(query)
       data = cursor.fetchall()
       if not data:
-        raise GulagDBException("Attachment("+ str(args['id']) +") does not exist!")
+        raise GulagDBException(whoami(self)
+          + "Attachment("+ str(args['id']) +") does not exist!"
+        )
       desc = cursor.description
       tuple = data[0]
       dict = {}
@@ -241,7 +314,7 @@ class GulagDB:
       dict['href'] = self.uri_prefixes['attachments'] + str(dict['id'])
       return Attachment(dict).__dict__
     except mariadb.Error as e:
-      raise GulagDBException(e) from e
+      raise GulagDBException(whoami(self) + e) from e
   
   def get_quarmail_attachments(self,quarmail_id):
     try:
@@ -255,7 +328,9 @@ class GulagDB:
       results = []
       data = cursor.fetchall()
       if not data:
-        raise GulagDBException("QuarMail("+ str(quarmail_id) +") has no attachments!")
+        raise GulagDBException(whoami(self)
+          + "QuarMail("+ str(quarmail_id) +") has no attachments!"
+        )
       desc = cursor.description
       for tuple in data:
         dict = {}
@@ -266,7 +341,7 @@ class GulagDB:
         results.append(Attachment(dict).__dict__)
       return results
     except mariadb.Error as e:
-      raise GulagDBException(e) from e
+      raise GulagDBException(whoami(self) + e) from e
 
   def get_quarmail_attachment(self,quarmail_id,attachment_id):
     try:
@@ -280,7 +355,7 @@ class GulagDB:
       cursor.execute(query)
       data = cursor.fetchall()
       if not data:
-        raise GulagDBException("QuarMail("+ str(quarmail_id) +") "
+        raise GulagDBException(whoami(self) + "QuarMail("+ str(quarmail_id) +") "
           + "has no attachment (" + str(attachment_id) + ")!"
         )
       desc = cursor.description
@@ -292,7 +367,7 @@ class GulagDB:
       dict['href'] += "/attachments/" + str(dict['id'])
       return Attachment(dict).__dict__
     except mariadb.Error as e:
-      raise GulagDBException(e) from e
+      raise GulagDBException(whoami(self) + e) from e
 
   
   def quarmail2attachment(self,quarmail_id,attachment_id):
@@ -303,5 +378,5 @@ class GulagDB:
         (quarmail_id, attachment_id)
       )
     except mariadb.Error as e:
-      raise GulagDBException(e) from e
+      raise GulagDBException(whoami(self) + e) from e
 

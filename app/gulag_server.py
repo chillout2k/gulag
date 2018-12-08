@@ -25,11 +25,11 @@ try:
     resource_class_kwargs={'gulag_object': gulag}
   )
   api.add_resource(ResMailboxes,
-    '/api/v1/mailboxes/',
+    '/api/v1/mailboxes',
     resource_class_kwargs={'gulag_object': gulag}
   )
   api.add_resource(ResQuarMails,
-    '/api/v1/quarmails/',
+    '/api/v1/quarmails',
     resource_class_kwargs={'gulag_object': gulag}
   )
   api.add_resource(ResQuarMail,
@@ -37,7 +37,7 @@ try:
     resource_class_kwargs={'gulag_object': gulag}
   )
   api.add_resource(ResQuarMailAttachments,
-    '/api/v1/quarmails/<int:quarmail_id>/attachments/',
+    '/api/v1/quarmails/<int:quarmail_id>/attachments',
     resource_class_kwargs={'gulag_object': gulag}
   )
   api.add_resource(ResQuarMailAttachment,
@@ -45,7 +45,7 @@ try:
     resource_class_kwargs={'gulag_object': gulag}
   )
   api.add_resource(ResAttachments,
-    '/api/v1/attachments/',
+    '/api/v1/attachments',
     resource_class_kwargs={'gulag_object': gulag}
   )
   api.add_resource(ResAttachment,
@@ -53,7 +53,7 @@ try:
     resource_class_kwargs={'gulag_object': gulag}
   )
   api.add_resource(ResRSPAMDImporter,
-    '/api/v1/mailboxes/<string:mailbox_id>/rspamdimporter/',
+    '/api/v1/mailboxes/<string:mailbox_id>/rspamdimporter',
     resource_class_kwargs={'gulag_object': gulag}
   )
   if __name__ == '__main__':

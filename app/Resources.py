@@ -45,7 +45,7 @@ class ResMailbox(GulagResource):
 class ResQuarMails(GulagResource):
   def get(self):
     try:
-      return self.gulag.get_quarmails()
+      return self.gulag.get_quarmails(request.args.to_dict())
     except GulagException as e:
       abort(400, message=e.message)
 
@@ -97,7 +97,11 @@ class ResAttachment(GulagResource):
 class ResRSPAMDImporter(GulagResource):
   def post(self,mailbox_id):
     try:
-      self.gulag.rspamd_http2imap(mailbox_id)
+      self.gulag.rspamd_http2imap({
+        "mailbox_id": mailbox_id,
+        "req_headers": request.headers,
+        "rfc822_message": request.get_data(as_text=True)
+      })
       # TODO: Response mit Location-Header?
       return {"resource: ": "HTTP2IMAP for RSPAMD"}
     except GulagException as e:
