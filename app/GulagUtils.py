@@ -1,7 +1,6 @@
 import sys
 from smtplib import SMTP
 
-
 def whoami(obj):
   return type(obj).__name__ + "::" + sys._getframe(1).f_code.co_name + "(): "
 

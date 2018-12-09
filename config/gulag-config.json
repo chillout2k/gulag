@@ -1,4 +1,10 @@
 {
+  "logging": {
+    "__level": "default: WARNING. Possible: INFO,ERROR,CRITICAL,DEBUG",
+    "level": "DEBUG",
+    "__filename": "default: empty string (stdout).",
+    "filename": ""
+  },
   "daemon":{
     "listen_host": "127.0.0.1",
     "listen_port": 5001
@@ -17,10 +23,10 @@
     }
   },
   "uri_prefixes": {
-    "root": "https://gulag.example.org/api/v1/",
-    "mailboxes": "https://gulag.example.org/api/v1/mailboxes/",
-    "quarmails": "https://gulag.example.org/api/v1/quarmails/",
-    "attachments": "https://gulag.example.org/api/v1/attachments/"
+    "root": "http://127.0.0.1:9090/api/v1/",
+    "mailboxes": "http://127.0.0.1:9090/api/v1/mailboxes/",
+    "quarmails": "http://127.0.0.1:9090/api/v1/quarmails/",
+    "attachments": "http://127.0.0.1:9090/api/v1/attachments/"
   },
   "db":{
     "unix_socket": "/mysqld/mysqld.sock",
