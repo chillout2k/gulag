@@ -35,7 +35,7 @@ class GulagDB:
         )
       self.uri_prefixes = uri_prefixes
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + e) from e
+      raise GulagDBException(whoami(self) + str(e)) from e
 
   def close(self):
     self.conn.close()
@@ -59,7 +59,7 @@ class GulagDB:
             results[value] = True
       return results
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + e) from e
+      raise GulagDBException(whoami(self) + str(e)) from e
 
   def get_limit_clause(self,args):
     if('query_offset' in args and 'query_limit' in args): 
@@ -120,7 +120,7 @@ class GulagDB:
           continue
       return results
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + e) from e
+      raise GulagDBException(whoami(self) + str(e)) from e
 
   def get_mailbox(self,mailbox_id):
     try:
@@ -144,7 +144,7 @@ class GulagDB:
       except MailboxException as e:
         raise GulagDBException(whoami(self) + e.message) from e
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + e) from e
+      raise GulagDBException(whoami(self) + str(e)) from e
  
   def add_quarmail(self, quarmail):
     try:
@@ -165,7 +165,7 @@ class GulagDB:
       cursor.close()
       return id
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + e) from e
+      raise GulagDBException(whoami(self) + (e)) from e
 
   def del_quarmail(self, id):
     try:
@@ -174,7 +174,7 @@ class GulagDB:
       cursor.close()
       return True
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + e) from e
+      raise GulagDBException(whoami(self) + str(e)) from e
 
   def get_quarmails(self,args):
     try: 
@@ -203,7 +203,7 @@ class GulagDB:
     except GulagDBException as e:
       raise GulagDBException(whoami(self) + e.message) from e
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + e) from e
+      raise GulagDBException(whoami(self) + str(e)) from e
 
   def get_quarmail(self,args):
     try:
@@ -235,7 +235,7 @@ class GulagDB:
 #        pass
       return QuarMail(dict).__dict__
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + e) from e
+      raise GulagDBException(whoami(self) + str(e)) from e
 
   def get_deprecated_mails(self,retention_period):
     try:
@@ -255,7 +255,7 @@ class GulagDB:
         results.append(dict)
       return results
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + e) from e
+      raise GulagDBException(whoami(self) + str(e)) from e
 
   def add_attachment(self, attach):
     try:
@@ -266,7 +266,7 @@ class GulagDB:
       )
       return cursor.lastrowid
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + e) from e
+      raise GulagDBException(whoami(self) + str(e)) from e
  
   def get_attachments(self):
     try:
@@ -290,7 +290,7 @@ class GulagDB:
         results.append(Attachment(dict).__dict__)
       return results
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + e) from e
+      raise GulagDBException(whoami(self) + str(e)) from e
   
   def get_attachment(self, args):
     try:
@@ -314,7 +314,7 @@ class GulagDB:
       dict['href'] = self.uri_prefixes['attachments'] + str(dict['id'])
       return Attachment(dict).__dict__
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + e) from e
+      raise GulagDBException(whoami(self) + str(e)) from e
   
   def get_quarmail_attachments(self,quarmail_id):
     try:
@@ -341,7 +341,7 @@ class GulagDB:
         results.append(Attachment(dict).__dict__)
       return results
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + e) from e
+      raise GulagDBException(whoami(self) + str(e)) from e
 
   def get_quarmail_attachment(self,quarmail_id,attachment_id):
     try:
@@ -367,7 +367,7 @@ class GulagDB:
       dict['href'] += "/attachments/" + str(dict['id'])
       return Attachment(dict).__dict__
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + e) from e
+      raise GulagDBException(whoami(self) + str(e)) from e
 
   
   def quarmail2attachment(self,quarmail_id,attachment_id):
@@ -378,5 +378,5 @@ class GulagDB:
         (quarmail_id, attachment_id)
       )
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + e) from e
+      raise GulagDBException(whoami(self) + str(e)) from e
 
