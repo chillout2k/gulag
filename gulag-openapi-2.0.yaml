@@ -1,0 +1,323 @@
+swagger: '2.0'
+info:
+  description: Gulag quarantine REST API
+  version: '18.12'
+  title: Gulag quarantine REST API
+  contact:
+    email: info@dc-it-con.de
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+
+host: gulag.example.com
+basePath: "/api/v1"
+schemes:
+  - https
+
+paths:
+  /quarmails:
+    get:
+      summary: retrieves quarantined emails
+      operationId: get_quarmails
+      description: |
+        By passing in the appropriate parameters, you can search for
+        available quarantined emails
+      produces:
+      - application/json
+      parameters:
+      - in: query
+        name: query_offset
+        description: number of records to skip for pagination
+        required: false
+        type: string
+      - in: query
+        name: query_limit
+        description: number of records to retrieve
+        type: integer
+        format: int32
+        minimum: 0
+        required: false
+      - in: query
+        name: sort_index
+        description: field used to sort results
+        type: string
+        required: false
+      - in: query
+        name: sort_order
+        description: order used to sort results
+        type: string
+        required: false
+      - in: query
+        name: id
+        description: unique id of a quarantined email
+        type: integer
+        format: int32
+        minimum: 0
+        required: false
+      - in: query
+        name: ctime
+        description: create timestamp of quarantined email
+        type: string
+        required: false
+      - in: query
+        name: mx_queueid
+        type: string
+        required: false
+      - in: query
+        name: env_from
+        type: string
+        description: RFC5321 envelope sender
+        required: false
+      - in: query
+        name: env_rcpt
+        type: string
+        description: RFC5321 envelope recipient
+        required: false
+      - in: query
+        name: hdr_cf
+        type: string
+        description: content scanner header
+        required: false
+      - in: query
+        name: hdr_from
+        type: string
+        description: RFC5322 From header
+        required: false
+      - in: query
+        name: hdr_subject
+        type: string
+        description: RFC5322 Subject header
+        required: false
+      - in: query
+        name: hdr_msgid
+        type: string
+        description: RFC5322 Message-ID header
+        required: false
+      - in: query
+        name: hdr_date
+        type: string
+        description: RFC5322 Date header
+        required: false
+      - in: query
+        name: cf_meta
+        type: string
+        description: content filter meta data
+        required: false
+      - in: query
+        name: mailbox_id
+        description: IMAP mailbox identifier, e.g. quarantine@example.org
+        type: string
+        required: false
+      - in: query
+        name: imap_uid
+        description: IMAP UID of a quarantined email
+        type: string
+        required: false
+      responses:
+        200:
+          description: search results matching criteria
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/QuarMail'
+        400:
+          description: bad input parameter
+        500:
+          description: server error
+          
+  /quarmails/{quarmail_id}:
+    get:
+      summary: retrieves a quarantined email
+      operationId: get_quarmail
+      produces:
+      - application/json
+      parameters:
+      - in: path
+        name: quarmail_id
+        description: unique id of quarantined email
+        required: true
+        type: integer
+      - in: query
+        name: rfc822_message
+        description: if set to a (random) value, full RFC822 email message will be returned as well
+        type: string
+        required: false
+      responses:
+        200:
+          description: quarantined email object
+          schema:
+            $ref: '#/definitions/QuarMail'
+        400:
+          description: bad input parameter
+        500:
+          description: server error
+
+  /quarmails/{quarmail_id}/attachments:
+    get:
+      summary: retrieves meta data of all attachments of a quarantined email by quarmail_id
+      operationId: get_quarmail_attachments
+      produces:
+      - application/json
+      parameters:
+      - in: path
+        name: quarmail_id
+        description: unique id of quarantined email
+        required: true
+        type: string
+      responses:
+        200:
+          description: quarantined email object
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Attachment'
+        400:
+          description: bad input parameter
+        500:
+          description: server error
+          
+  /quarmails/{quarmail_id}/attachments/{attachment_id}:
+    get:
+      summary: retrieves a quarantined email
+      operationId: get_quarmail_attachment
+      produces:
+      - application/json
+      parameters:
+      - in: path
+        name: quarmail_id
+        description: unique id of quarantined email
+        required: true
+        type: integer
+      - in: path
+        name: attachment_id
+        description: unique id of attachment
+        required: true
+        type: integer
+      - in: query
+        name: data
+        description: if set to a (random) value, full attachment will be returned as well
+        type: string
+        required: false
+      responses:
+        200:
+          description: quarantined email object
+          schema:
+            $ref: '#/definitions/Attachment'
+        400:
+          description: bad input parameter
+        500:
+          description: server error
+
+definitions:
+  QuarMail:
+    type: object
+    required:
+    - id
+    - ctime
+    - mx_queueid
+    - env_from
+    - env_rcpt
+    - hdr_cf
+    - hdr_from
+    - hdr_subject
+    - hdr_msgid
+    - hdr_date
+    - cf_meta
+    - mailbox_id
+    - imap_uid
+    - msg_size
+    - href
+    properties:
+      id:
+        type: integer
+        description: unique id of a quarantined email
+      ctime:
+        type: string
+        example: "2018-12-09 11:14:18"
+      mx_queueid:
+        type: string
+        example: "43CNrL6pK2zSV"
+      env_from:
+        type: string
+        description: RFC5321 envelope sender
+        example: alice@example.org
+      env_rcpt:
+        type: string
+        description: RFC5321 envelope recipient
+        example: bob@example.com
+      hdr_cf:
+        type: string
+        description: content filter header
+        example: '[{"group":"ungrouped","name":"GTUBE","score":0}]'
+      hdr_from:
+        type: string
+        description: RFC5322 From header
+      hdr_subject:
+        type: string
+        description: RFC5322 Subject header
+      hdr_msgid:
+        type: string
+        description: RFC5322 Message-ID header
+      hdr_date:
+        type: string
+        description: RFC5322 Date header
+      cf_meta:
+        type: string
+        description: content filter meta infos
+      mailbox_id:
+        type: string
+        description: IMAP mailbox name, that holds the quarantined email
+        example: quarantine@example.com
+      imap_uid:
+        type: integer
+        description: IMAP unique id of the quarantined email
+      href:
+        type: string
+        description: hypermedia
+        example: "https://gulag.example.org/api/v1/quarmails/123"
+      attach_count:
+        type: integer
+        description: number of attachments
+      rfc822_message:
+        type: string
+        description: full RFC822 email message
+  Attachment:
+    type: object
+    required:
+    - id
+    - filename
+    - content_encoding
+    - content_type
+    - mailbox_id
+    - imap_uid
+    - href
+    properties:
+      id:
+        type: integer
+        description: unique id of an attachment
+      filename:
+        type: string
+        description: filename extracted from Content-Type header
+      comment:
+        type: string
+      content_encoding:
+        type: string
+        example: base64
+        description: method used to encode attachment (Content-Transfer-Encoding header)
+      content_type:
+        type: string
+        example: image/jpeg
+      href:
+        type: string
+        description: hypermedia
+        example: "https://gulag.example.org/api/v1/quarmails/123/attachment/2"
+      mailbox_id:
+        type: string
+        description: IMAP mailbox name, that holds the quarantined email
+        example: quarantine@example.com
+      imap_uid:
+        type: integer
+        description: IMAP unique id of the quarantined email
+      data:
+        type: string
+        description: raw/encoded (see content_encoding) attachment payload
