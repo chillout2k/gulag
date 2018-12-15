@@ -143,10 +143,10 @@ class Gulag:
             # ist ein Attachment
             filename = email.header.decode_header(part.get_filename())
             if filename[0][1]:
-              # Encoded
+              # filename is encoded
               filename = filename[0][0].decode(filename[0][1])
             else:
-              # Nicht encoded
+              # filename isn´t encoded
               filename = filename[0][0]
             attach_id = self.db.add_attachment({
               'filename': filename,
@@ -154,7 +154,7 @@ class Gulag:
               'content_encoding': part['Content-Transfer-Encoding']
             })
             attachments.append(attach_id)
-          # Ende if part.get_filename()
+          # End if part.get_filename()
           # get all URIs
           ctype = part.get_content_type()
           if(ctype == 'text/plain' or ctype == 'text/html'):
@@ -162,12 +162,13 @@ class Gulag:
             curis = extract_uris(part.get_payload(decode=True).decode("utf-8"))
             if(len(curis) > 0):
               uris = {**uris, **curis}
-        # Ende for msg.walk()
-        # QuarMail und Attachments verknüpfen
+        # End for msg.walk()
+        # link message with attachments
         if(len(attachments) > 0):
           for quarmail_id in quarmail_ids:
             for attachment_id in attachments:
               self.db.quarmail2attachment(str(quarmail_id), str(attachment_id))
+        # link message with uris
         if(len(uris) > 0):
           for quarmail_id in quarmail_ids:
             for uri in uris:
@@ -179,9 +180,9 @@ class Gulag:
                 self.db.quarmail2uri(str(quarmail_id), str(uri_id))
               except GulagDBException as e:
                 logging.error(whoami(self) + e.message)
-      # Ende for(unseen)
+      # End for(unseen)
       imap_mb.close()
-    # Ende for get_mailboxes
+    # End for get_mailboxes
 
   def cleanup_quarmails(self):
     logging.info(whoami(self) + "QuarMails to purge:  " + str(len(
@@ -281,6 +282,7 @@ class Gulag:
         return self.db.get_quarmail_uris(args['quarmail_id'])
       except GulagDBException as e:
         raise GulagException(whoami(self) + e.message) from e
+    # get URIs from email@IMAP
     qm_db = None
     try:
       qm_db = self.db.get_quarmail({"id": args['quarmail_id']})
@@ -296,12 +298,13 @@ class Gulag:
     imap_mb = None
     try:
       imap_mb = IMAPmailbox(mailbox)
-      mparts = imap_mb.get_main_parts(qm_db['imap_uid'])
       uris = []
-      uri_pattern = r'(https?:\/\/[^\s<>"]+)'
-      for part in mparts:
-        for m in re.finditer(uri_pattern, part.decode("utf-8")):
-          uris.append(m.group(0))
+      for part in imap_mb.get_main_parts(qm_db['imap_uid']):
+        for uri in extract_uris(part.decode("utf-8")):
+          uris.append({
+            "uri": uri,
+            "fqdn": extract_fqdn(uri)
+          })
       return uris
     except IMAPmailboxException as e:
       logging.warning(whoami(self) + e.message)

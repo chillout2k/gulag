@@ -363,3 +363,5 @@ definitions:
         type: string
       fqdn:
         type: string
+      href:
+        type: string
