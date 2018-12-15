@@ -82,6 +82,18 @@ class ResQuarMailAttachment(GulagResource):
     except GulagException as e:
       abort(400, message=e.message)
 
+class ResQuarMailURIs(GulagResource):
+  def get(self,quarmail_id): 
+    args = {
+      "quarmail_id": quarmail_id
+    }
+    if(request.args.get('from_rfc822_message')):
+        args['from_rfc822_message'] = True
+    try:
+      return self.gulag.get_quarmail_uris(args)
+    except GulagException as e:
+      abort(400, message=e.message)
+
 class ResAttachments(GulagResource):
   def get(self):
     return {"resource": "Attachments"}

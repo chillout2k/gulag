@@ -178,3 +178,27 @@ class Attachment:
     if 'href' in at_ref:
       self.href = at_ref['href']
 
+class URIException(Exception):
+  message = None
+  def __init__(self,message):
+    self.message = message
+
+class URI:
+  id = None
+  uri = None
+  fqdn = None
+  href = None
+
+  def __init__(self,uri_ref):
+    if 'id' not in uri_ref:
+      raise URIException("'id' is mandatory!")
+    self.id = uri_ref['id']
+    if 'uri' not in uri_ref:
+      raise URIException("'uri' is mandatory!")
+    self.uri = uri_ref['uri']
+    if 'fqdn' not in uri_ref:
+      raise URIException("'fqdn' is mandatory!")
+    self.fqdn = uri_ref['fqdn']
+    if 'href' in uri_ref:
+      self.href = uri_ref['href']
+    

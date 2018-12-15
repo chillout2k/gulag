@@ -1,4 +1,4 @@
-import sys
+import sys,re
 from smtplib import SMTP
 
 def whoami(obj):
@@ -20,3 +20,17 @@ def send_mail(args):
   except TimeoutError as e:
     raise Exception('xyz') from e
 
+def extract_uris(string):
+  uris = {}
+  uri_pattern = r'(https?:\/\/[^\s<>"]+)'
+  for m in re.finditer(uri_pattern, string):
+    uris[m.group(0)] = {}
+  return uris
+
+def extract_fqdn(uri):
+  uri_pattern = r'(https?:\/\/[^\s<>"]+)'
+  if(re.match(uri_pattern,uri)):
+    m = re.match(r'https?:\/\/([^:\/]+)', uri)
+    return m.group(1)
+  else:
+    return None

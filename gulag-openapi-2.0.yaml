@@ -1,7 +1,7 @@
 swagger: '2.0'
 info:
   description: Gulag quarantine REST API
-  version: '18.12'
+  version: "1.0.0"
   title: Gulag quarantine REST API
   contact:
     email: info@dc-it-con.de
@@ -207,6 +207,35 @@ paths:
           description: bad input parameter
         500:
           description: server error
+          
+  /quarmails/{quarmail_id}/uris:
+    get:
+      summary: "retrieves all URIS from any main MIME part (text/plain,text/html)"
+      operationId: get_quarmail_uris
+      produces:
+      - application/json
+      parameters:
+      - in: path
+        name: quarmail_id
+        description: unique id of quarantined email
+        required: true
+        type: string
+      - in: query
+        name: from_rfc822_message
+        description: fetch all URIs from RFC822 message not from database
+        required: false
+        type: string
+      responses:
+        200:
+          description: array of URIs
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/URI'
+        400:
+          description: bad input parameter
+        500:
+          description: server error
 
 definitions:
   QuarMail:
@@ -321,3 +350,16 @@ definitions:
       data:
         type: string
         description: raw/encoded (see content_encoding) attachment payload
+  URI:
+    type: object
+    required:
+    - id
+    - uri
+    - fqdn
+    properties:
+      id:
+        type: integer
+      uri:
+        type: string
+      fqdn:
+        type: string

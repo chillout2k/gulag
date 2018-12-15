@@ -2,7 +2,7 @@ import mysql.connector as mariadb
 from Entities import(
   Mailbox,MailboxException,QuarMail,
   QuarMailException,Attachment,
-  AttachmentException
+  AttachmentException,URI,URIException
 )
 from GulagUtils import whoami
 
@@ -98,6 +98,11 @@ class GulagDB:
         where_clause += "and " + arg + "='" + args[arg] + "' "
       cnt += 1
     return where_clause
+
+  def parse_filters(self,filters):
+    # TODO
+    # {"groupOp":"AND","rules":[{"field":"Customer","op":"eq","data":"eosp"}]}
+    return True
 
   def get_mailboxes(self):
     try:
@@ -217,7 +222,7 @@ class GulagDB:
       data = cursor.fetchall()
       if not data:
         raise GulagDBException(whoami(self)
-          + "Quarmail with id '"+ args['id'] + "' does not exist!"
+          + "Quarmail with id '"+ str(args['id']) + "' does not exist!"
         )
       desc = cursor.description
       cursor.close()
@@ -380,3 +385,61 @@ class GulagDB:
     except mariadb.Error as e:
       raise GulagDBException(whoami(self) + str(e)) from e
 
+  def add_uri(self,args):
+    try:
+      cursor = self.conn.cursor()
+      cursor.execute("insert into URIs " +
+        "(uri, fqdn) values (%s,%s)",
+        (args['uri'], args['fqdn'])
+      )
+      return cursor.lastrowid
+    except mariadb.Error as e:
+      raise GulagDBException(whoami(self) + str(e)) from e
+
+  def del_uri(self,uri_id):
+    try:
+      cursor = self.conn.cursor()
+      cursor.execute(
+        "delete from URIs where uri_id=" +  uri_id + ";"
+      )
+      return cursor.lastrowid
+    except mariadb.Error as e:
+      raise GulagDBException(whoami(self) + str(e)) from e
+
+
+  def quarmail2uri(self,quarmail_id,uri_id):
+    try:
+      cursor = self.conn.cursor()
+      cursor.execute("insert into QuarMail2URI " +
+        "(quarmail_id, uri_id) values (%s,%s)",
+        (quarmail_id, uri_id)
+      )
+    except mariadb.Error as e:
+      raise GulagDBException(whoami(self) + str(e)) from e
+    
+  def get_quarmail_uris(self,quarmail_id):
+    try:
+      query = "select URIs.*"
+      query += " from QuarMail2URI"
+      query += " left join QuarMails ON QuarMails.id = QuarMail2URI.quarmail_id"
+      query += " left join URIs ON URIs.id = QuarMail2URI.uri_id"
+      query += " where QuarMails.id = " + str(quarmail_id) + ";"
+      cursor = self.conn.cursor()
+      cursor.execute(query)
+      results = []
+      data = cursor.fetchall()
+      if not data:
+        raise GulagDBException(whoami(self)
+          + "QuarMail("+ str(quarmail_id) +") has no uris!"
+        )
+      desc = cursor.description
+      for tuple in data:
+        dict = {}
+        for (name, value) in zip(desc, tuple):
+          dict[name[0]] = value
+        dict['href'] = self.uri_prefixes['quarmails'] + str(quarmail_id)
+        dict['href'] += "/uris/" + str(dict['id'])
+        results.append(URI(dict).__dict__)
+      return results
+    except mariadb.Error as e:
+      raise GulagDBException(whoami(self) + str(e)) from e

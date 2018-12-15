@@ -21,10 +21,6 @@ create table Mailboxes(
   comment varchar(256) default null
 )ENGINE = InnoDB;
 insert into Mailboxes (email_address,name,imap_user,imap_pass) 
-  values('quarantine-in@example.org','E-Mail inbound quarantine','quarantine-in','quarantine-in_secure_password');
-insert into Mailboxes (email_address,name,imap_user,imap_pass) 
-  values('quarantine-out@example.org','E-Mail outbound quarantine','quarantine-out','quarantine-out_secure_password');
-insert into Mailboxes (email_address,name,imap_user,imap_pass) 
   values('quarantine-sandbox@example.org','E-Mail sandbox quarantine','quarantine-sb','quarantine-sb_secure_password');
 
 create table QuarMails (
@@ -60,3 +56,15 @@ create table QuarMail2Attachment (
   foreign key (attachment_id) references Attachments (id) on delete cascade on update cascade
 )ENGINE = InnoDB;
 
+create table URIs (
+  id int unsigned auto_increment primary key,
+  uri varchar(2048),
+  fqdn varchar(512)
+)ENGINE = InnoDB;
+
+create table QuarMail2URI (
+  quarmail_id int unsigned,
+  uri_id int unsigned,
+  foreign key (quarmail_id) references QuarMails (id) on delete cascade on update cascade,
+  foreign key (uri_id) references URIs (id) on delete cascade on update cascade
+)ENGINE = InnoDB;

@@ -1,8 +1,8 @@
-import json,sys,os,logging
+import json,sys,os,logging,re
 import email,email.header,email.message
 from GulagDB import GulagDB,GulagDBException
 from GulagMailbox import IMAPmailbox,IMAPmailboxException
-from GulagUtils import whoami
+from GulagUtils import whoami,extract_uris,extract_fqdn
 
 class GulagException(Exception):
   message = None
@@ -78,6 +78,7 @@ class Gulag:
       for unseen in imap_mb.get_unseen_messages():
         quarmail_ids = []
         attachments = []
+        uris = {}
         uid = unseen['imap_uid']
         msg = email.message_from_bytes(unseen['msg'])
         msg_size = len(msg)
@@ -154,12 +155,30 @@ class Gulag:
             })
             attachments.append(attach_id)
           # Ende if part.get_filename()
+          # get all URIs
+          ctype = part.get_content_type()
+          if(ctype == 'text/plain' or ctype == 'text/html'):
+            curis = {}
+            curis = extract_uris(part.get_payload(decode=True).decode("utf-8"))
+            if(len(curis) > 0):
+              uris = {**uris, **curis}
         # Ende for msg.walk()
         # QuarMail und Attachments verknüpfen
         if(len(attachments) > 0):
           for quarmail_id in quarmail_ids:
             for attachment_id in attachments:
               self.db.quarmail2attachment(str(quarmail_id), str(attachment_id))
+        if(len(uris) > 0):
+          for quarmail_id in quarmail_ids:
+            for uri in uris:
+              try:
+                uri_id = self.db.add_uri({
+                  "uri": uri,
+                  "fqdn": extract_fqdn(uri)
+                })
+                self.db.quarmail2uri(str(quarmail_id), str(uri_id))
+              except GulagDBException as e:
+                logging.error(whoami(self) + e.message)
       # Ende for(unseen)
       imap_mb.close()
     # Ende for get_mailboxes
@@ -256,10 +275,38 @@ class Gulag:
     if 'data' not in args:
       return at_db
 
-  def get_uris(self):
-    # https://stackoverflow.com/questions/1792366/extract-urls-out-of-email-in-python
-    return True
-
+  def get_quarmail_uris(self,args):
+    if('from_rfc822_message' not in args):
+      try:
+        return self.db.get_quarmail_uris(args['quarmail_id'])
+      except GulagDBException as e:
+        raise GulagException(whoami(self) + e.message) from e
+    qm_db = None
+    try:
+      qm_db = self.db.get_quarmail({"id": args['quarmail_id']})
+    except GulagDBException as e:
+      logging.warning(whoami(self) + e.message)
+      raise GulagException(whoami(self) + e.message) from e
+    mailbox = None
+    try:
+      mailbox = self.db.get_mailbox(qm_db['mailbox_id'])
+    except GulagDBException as e:
+      logging.warning(whoami(self) + e.message)
+      raise GulagException(whoami(self) + e.message) from e 
+    imap_mb = None
+    try:
+      imap_mb = IMAPmailbox(mailbox)
+      mparts = imap_mb.get_main_parts(qm_db['imap_uid'])
+      uris = []
+      uri_pattern = r'(https?:\/\/[^\s<>"]+)'
+      for part in mparts:
+        for m in re.finditer(uri_pattern, part.decode("utf-8")):
+          uris.append(m.group(0))
+      return uris
+    except IMAPmailboxException as e:
+      logging.warning(whoami(self) + e.message)
+      raise GulagException(whoami(self) + e.message) from e
+    
   def rspamd_http2imap(self,args):
     mailbox = None
     try:
@@ -302,7 +349,7 @@ class Gulag:
         )
         logging.error(err)
         raise GulagException(err)
-      if('rfc822_message' not in args['rfc822_message']):
+      if('rfc822_message' not in args):
         err = str(whoami(self) 
           + "Missing rfc822_message!"
         )

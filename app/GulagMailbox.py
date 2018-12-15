@@ -91,6 +91,19 @@ class IMAPmailbox:
       + str(self.email_address) + " not found!"
     )
 
+  def get_main_parts(self,imap_uid):
+    msg = email.message_from_bytes(self.get_message(imap_uid))
+    mparts = []
+    for part in msg.walk():
+      ctype = part.get_content_type()
+      if(ctype == 'text/plain' or ctype == 'text/html'):
+        mparts.append(part.get_payload(decode=True))
+    if(len(mparts) > 0):
+      return mparts
+    raise IMAPmailboxException(whoami(self) +
+      "IMAP_UID(" + str(imap_uid)+")@"+str(self.email_address)+" has no main parts!"
+    )
+
   def append_message(self,message):
     rv, data = self.mailbox.append(
       self.imap_mailbox,
