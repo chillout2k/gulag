@@ -46,6 +46,7 @@ create table Attachments (
   filename varchar(256) not null,
   content_type varchar(256) not null,
   content_encoding varchar(64),
+  magic varchar(128),
   comment varchar(256)
 )ENGINE = InnoDB;
 

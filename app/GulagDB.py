@@ -185,7 +185,9 @@ class GulagDB:
     try: 
       cursor = self.conn.cursor()
       query = "select *,(select count(*) from QuarMail2Attachment"
-      query += " where QuarMails.id=QuarMail2Attachment.quarmail_id) as attach_count"
+      query += " where QuarMails.id=QuarMail2Attachment.quarmail_id) as attach_count,"
+      query += " (select count(*) from QuarMail2URI"
+      query += " where QuarMails.id=QuarMail2URI.quarmail_id) as uri_count"
       query += " from QuarMails " + self.get_where_clause(args)
       query += " " + self.get_limit_clause(args) + " ;"
       cursor.execute(query)
@@ -213,10 +215,10 @@ class GulagDB:
   def get_quarmail(self,args):
     try:
       cursor = self.conn.cursor()
-      # TODO: build SQL query by args
-      #query = "select * from QuarMails where id='" + args['id'] + "';"
       query = "select *,(select count(*) from QuarMail2Attachment"
-      query += " where QuarMails.id=QuarMail2Attachment.quarmail_id) as attach_count"
+      query += " where QuarMails.id=QuarMail2Attachment.quarmail_id) as attach_count,"
+      query += " (select count(*) from QuarMail2URI"
+      query += " where QuarMails.id=QuarMail2URI.quarmail_id) as uri_count"
       query += " from QuarMails where QuarMails.id="+ str(args['id']) +";"
       cursor.execute(query)
       data = cursor.fetchall()
@@ -266,8 +268,9 @@ class GulagDB:
     try:
       cursor = self.conn.cursor()
       cursor.execute("insert into Attachments " +
-        "(filename, content_type, content_encoding) values (%s,%s,%s)",
-        (attach['filename'], attach['content_type'], attach['content_encoding'])
+        "(filename,content_type,content_encoding,magic) values (%s,%s,%s,%s)",
+        (attach['filename'],attach['content_type'],
+         attach['content_encoding'],attach['magic'])
       )
       return cursor.lastrowid
     except mariadb.Error as e:

@@ -307,6 +307,9 @@ definitions:
       attach_count:
         type: integer
         description: number of attachments
+      uri_count:
+        type: integer
+        description: number of uris
       rfc822_message:
         type: string
         description: full RFC822 email message
@@ -317,6 +320,7 @@ definitions:
     - filename
     - content_encoding
     - content_type
+    - magic
     - mailbox_id
     - imap_uid
     - href
@@ -336,6 +340,9 @@ definitions:
       content_type:
         type: string
         example: image/jpeg
+      magic:
+        type: string
+        example: "PDF document, version 1.2"
       href:
         type: string
         description: hypermedia

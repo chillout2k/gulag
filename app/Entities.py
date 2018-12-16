@@ -97,6 +97,7 @@ class QuarMail:
   msg_size = None
   href = None
   attach_count = None
+  uri_count = None
 
   def __init__(self,qm_ref):
     if 'id' not in qm_ref:
@@ -139,6 +140,8 @@ class QuarMail:
       self.href = qm_ref['href']
     if 'attach_count' in qm_ref:
       self.attach_count = qm_ref['attach_count']
+    if 'uri_count' in qm_ref:
+      self.uri_count = qm_ref['uri_count']
 
 class AttachmentException(Exception):
   message = None
@@ -150,6 +153,7 @@ class Attachment:
   filename = None
   content_type = None
   content_encoding = None
+  magic = None
   comment = None
   mailbox_id = None
   imap_uid = None
@@ -167,6 +171,9 @@ class Attachment:
     self.content_type = at_ref['content_type']
     if 'content_encoding' in at_ref:
       self.content_encoding = at_ref['content_encoding']
+    if 'magic' not in at_ref:
+      raise AttachmentException("'magic' is mandatory!")
+    self.magic = at_ref['magic']
     if 'comment' in at_ref:
       self.comment = at_ref['comment']
     if 'mailbox_id' not in at_ref:

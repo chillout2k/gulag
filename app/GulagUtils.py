@@ -1,4 +1,5 @@
-import sys,re
+import sys,re,urllib
+from urllib.parse import urlparse
 from smtplib import SMTP
 
 def whoami(obj):
@@ -6,7 +7,7 @@ def whoami(obj):
 
 def send_mail(args):
   try:
-  # FIXME: SMTP tranaport security and authentication!
+  # FIXME: SMTP transport security and authentication!
   # with SMTP(host=mailbox['smtp_server'],port=mailbox['smtp_port']) as smtp:
   #   try:
   #     smtp.sendmail(
@@ -20,17 +21,22 @@ def send_mail(args):
   except TimeoutError as e:
     raise Exception('xyz') from e
 
-def extract_uris(string):
+def extract_uris(input_text):
   uris = {}
   uri_pattern = r'(https?:\/\/[^\s<>"]+)'
-  for m in re.finditer(uri_pattern, string):
-    uris[m.group(0)] = {}
+  for m in re.finditer(uri_pattern, input_text):
+    uri = urllib.parse.unquote(m.group(0))
+    uris[uri] = {}
+    # extract sub-URIs (google redirector: https://www.google.de/url?sa=t&url=...)
+    for m2 in re.finditer(uri_pattern, uri):
+      suburi = urllib.parse.unquote(m2.group(0))
+      uris[suburi] = {"suburi": True}
   return uris
 
 def extract_fqdn(uri):
-  uri_pattern = r'(https?:\/\/[^\s<>"]+)'
-  if(re.match(uri_pattern,uri)):
-    m = re.match(r'https?:\/\/([^:\/]+)', uri)
-    return m.group(1)
-  else:
+  puri = None
+  try:
+    puri = urlparse(uri)
+    return puri.hostname
+  except ValueError as e:
     return None

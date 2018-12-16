@@ -1,4 +1,4 @@
-import json,sys,os,logging,re
+import json,sys,os,logging,re,magic
 import email,email.header,email.message
 from GulagDB import GulagDB,GulagDBException
 from GulagMailbox import IMAPmailbox,IMAPmailboxException
@@ -30,6 +30,7 @@ class Gulag:
       raise GulagException(whoami(self) + "Logging not configured!")
     if('filename' in self.config['logging'] and 
        len(self.config['logging']['filename']) > 0):
+      # TODO: Exception handling
       logging.basicConfig(
         filename=self.config['logging']['filename'],
         format='%(asctime)s %(levelname)s %(message)s',
@@ -148,10 +149,16 @@ class Gulag:
             else:
               # filename isn´t encoded
               filename = filename[0][0]
+            attach_magic = None
+            try:
+              attach_magic = magic.from_buffer(part.get_payload(decode=True))
+            except:
+              logging.info(whoami(self) + ": " + str(sys.exc_info()))
             attach_id = self.db.add_attachment({
               'filename': filename,
               'content_type': part.get_content_type(),
-              'content_encoding': part['Content-Transfer-Encoding']
+              'content_encoding': part['Content-Transfer-Encoding'],
+              'magic': attach_magic
             })
             attachments.append(attach_id)
           # End if part.get_filename()
@@ -168,6 +175,9 @@ class Gulag:
           for quarmail_id in quarmail_ids:
             for attachment_id in attachments:
               self.db.quarmail2attachment(str(quarmail_id), str(attachment_id))
+              logging.info(whoami(self) + 
+                "Attachment("+str(attachment_id)+")@QuarMail("+str(quarmail_id)+") imported"
+              )
         # link message with uris
         if(len(uris) > 0):
           for quarmail_id in quarmail_ids:
@@ -178,6 +188,9 @@ class Gulag:
                   "fqdn": extract_fqdn(uri)
                 })
                 self.db.quarmail2uri(str(quarmail_id), str(uri_id))
+                logging.info(whoami(self) + 
+                  "URI("+str(uri_id)+")@QuarMail("+str(quarmail_id)+") imported"
+                )
               except GulagDBException as e:
                 logging.error(whoami(self) + e.message)
       # End for(unseen)
