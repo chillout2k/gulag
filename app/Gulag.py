@@ -166,8 +166,10 @@ class Gulag:
           ctype = part.get_content_type()
           if(ctype == 'text/plain' or ctype == 'text/html'):
             curis = {}
-            curis = extract_uris(part.get_payload(decode=True).decode("utf-8"))
+#            curis = extract_uris(part.get_payload(decode=True).decode("utf-8"))
+            curis = extract_uris(part.get_payload(decode=True).decode("utf-8","replace"))
             if(len(curis) > 0):
+              logging.info(whoami(self) + "CURIS: " + str(curis))
               uris = {**uris, **curis}
         # End for msg.walk()
         # link message with attachments
