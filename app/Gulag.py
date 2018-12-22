@@ -58,7 +58,8 @@ class Gulag:
       )
     for arg in args:
       if(arg == 'query_offset' or arg == 'query_limit' 
-         or arg == 'sort_index' or arg == 'sort_order'):
+         or arg == 'sort_index' or arg == 'sort_order'
+         or arg == 'rfc822_message'):
         continue
       if arg not in self.fields[fields_target]:
         raise GulagException(
@@ -212,14 +213,41 @@ class Gulag:
       raise GulagException(whoami(self) + e.message) from e
 
   def get_quarmails(self,args):
+    qms_db = None
     try:
       self.check_fields('QuarMails',args)
-      return self.db.get_quarmails(args)
+      qms_db = self.db.get_quarmails(args)
     except(GulagException,GulagDBException) as e:
       logging.warning(whoami(self) + e.message)
       raise GulagException(
         whoami(self) + e.message
       ) from e
+    if 'rfc822_message' not in args:
+      return qms_db
+    # collect all IMAP mailboxes to read from
+    mailboxes = {}
+    for qm in qms_db:
+      if qm['mailbox_id'] not in mailboxes:
+        mailboxes[qm['mailbox_id']] = []
+    #  any qm_db with full RFC822 messages from IMAP mailbox
+    for mailbox_id in mailboxes:
+      try:
+        mailbox = self.db.get_mailbox(mailbox_id)
+      except GulagDBException as e:
+        logging.warning(whoami(self) + e.message)
+        raise GulagException(whoami(self) + e.message) from e 
+      imap_mb = None
+      try:
+        imap_mb = IMAPmailbox(mailbox)
+      except IMAPmailboxException as e:
+        logging.warning(whoami(self) + e.message)
+        raise GulagException(whoami(self) + e.message) from e
+      for qm_db in qms_db:
+        qm_db['rfc822_message'] = imap_mb.get_message(qm_db['imap_uid']).decode("utf-8")
+        logging.info(whoami(self) + 
+          str(qm_db['imap_uid']) + " size: " + str(qm_db['msg_size'])
+        )
+    return qms_db
   
   def get_quarmail(self,args):
     qm_db = None

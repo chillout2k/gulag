@@ -90,7 +90,8 @@ class GulagDB:
     cnt = 0
     for arg in args:
       if(arg == 'query_offset' or arg == 'query_limit'
-         or arg == 'sort_index' or arg == 'sort_order'):
+         or arg == 'sort_index' or arg == 'sort_order'
+         or arg == 'rfc822_message'):
         continue
       if(cnt == 0):
         where_clause += "where " + arg + "='" + args[arg] + "' "
