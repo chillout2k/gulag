@@ -1,4 +1,4 @@
-import json,sys,os,logging,re,magic
+import json, sys,os,logging,re,magic
 import email,email.header,email.message
 from GulagDB import GulagDB,GulagDBException
 from GulagMailbox import IMAPmailbox,IMAPmailboxException
@@ -25,10 +25,10 @@ class Gulag:
       raise GulagException(whoami(self) + str(sys.exc_info()))
     # logging
 #    logging_level = logging.INFO
-#    if 'level' in self.config['logging']:     
+#    if 'level' in self.config['logging']:
     if 'logging' not in self.config:
       raise GulagException(whoami(self) + "Logging not configured!")
-    if('filename' in self.config['logging'] and 
+    if('filename' in self.config['logging'] and
        len(self.config['logging']['filename']) > 0):
       # TODO: Exception handling
       logging.basicConfig(
@@ -50,20 +50,20 @@ class Gulag:
       logging.warning(whoami(self) + e.message)
       raise GulagException(whoami(self) + e.message) from e
     logging.info('Gulag core initialized by ' + os.path.basename(__file__))
-   
+
   def check_fields(self,fields_target,args):
     if fields_target not in self.fields:
       raise GulagException(
         whoami(self) + fields_target + " not found in Gulag.fields!"
       )
     for arg in args:
-      if(arg == 'query_offset' or arg == 'query_limit' 
+      if(arg == 'query_offset' or arg == 'query_limit'
          or arg == 'sort_index' or arg == 'sort_order'
          or arg == 'rfc822_message'):
         continue
       if arg not in self.fields[fields_target]:
         raise GulagException(
-          whoami(self) + arg + " is not a valid field of " 
+          whoami(self) + arg + " is not a valid field of "
           + fields_target + "!"
         )
 
@@ -90,9 +90,10 @@ class Gulag:
           r5321_from = r5321_from.replace(">","")
         r5321_rcpts = None
         try:
-          r5321_rcpts = email.header.decode_header(msg['X-Envelope-To-Blocked'])[0][0]
+          r5321_rcpts = email.header.decode_header(
+            msg['X-Envelope-To-Blocked'])[0][0]
         except:
-          logging.warning(whoami(self) + 
+          logging.warning(whoami(self) +
             "Failed to extract envelope recipients! Skipping mail"
           )
           continue
@@ -100,7 +101,7 @@ class Gulag:
         try:
           r5322_from = email.header.decode_header(msg['From'])[0][0]
         except:
-          logging.warning(whoami(self) + 
+          logging.warning(whoami(self) +
             "Failed to extract from header! Skipping mail"
           )
           continue
@@ -130,10 +131,12 @@ class Gulag:
         # über die mailbox_id sowie die imap_uid mehrfach referenziert.
         for r5321_rcpt in r5321_rcpts.split(","):
           quarmail_id = self.db.add_quarmail({
-            'mx_queue_id': mx_queue_id, 'env_from': r5321_from, 'env_rcpt': r5321_rcpt,
-            'hdr_cf': x_spam_status, 'hdr_from': r5322_from, 'hdr_subject': subject,
-            'hdr_msgid': msg_id, 'hdr_date': date, 'cf_meta': 'cf_meta',
-            'mailbox_id': 'quarantine@zwackl.de', 'imap_uid': uid, 'msg_size': msg_size
+            'mx_queue_id': mx_queue_id, 'env_from': r5321_from,
+            'env_rcpt': r5321_rcpt, 'hdr_cf': x_spam_status,
+            'hdr_from': r5322_from, 'hdr_subject': subject,'hdr_msgid': msg_id,
+            'hdr_date': date, 'cf_meta': 'cf_meta',
+            'mailbox_id': 'quarantine@zwackl.de', 'imap_uid': uid,
+            'msg_size': msg_size
           })
           logging.info(whoami(self) + "QuarMail (%s) imported" % (quarmail_id))
           quarmail_ids.append(quarmail_id)
@@ -167,7 +170,9 @@ class Gulag:
           ctype = part.get_content_type()
           if(ctype == 'text/plain' or ctype == 'text/html'):
             curis = {}
-            curis = extract_uris(part.get_payload(decode=True).decode("utf-8","replace"))
+            curis = extract_uris(
+              part.get_payload(decode=True).decode("utf-8","replace")
+            )
             if(len(curis) > 0):
               logging.info(whoami(self) + "CURIS: " + str(curis))
               uris = {**uris, **curis}
@@ -177,8 +182,9 @@ class Gulag:
           for quarmail_id in quarmail_ids:
             for attachment_id in attachments:
               self.db.quarmail2attachment(str(quarmail_id), str(attachment_id))
-              logging.info(whoami(self) + 
-                "Attachment("+str(attachment_id)+")@QuarMail("+str(quarmail_id)+") imported"
+              logging.info(whoami(self) +
+                "Attachment("+str(attachment_id)+")@QuarMail("+
+                str(quarmail_id)+") imported"
               )
         # link message with uris
         if(len(uris) > 0):
@@ -190,7 +196,7 @@ class Gulag:
                   "fqdn": extract_fqdn(uri)
                 })
                 self.db.quarmail2uri(str(quarmail_id), str(uri_id))
-                logging.info(whoami(self) + 
+                logging.info(whoami(self) +
                   "URI("+str(uri_id)+")@QuarMail("+str(quarmail_id)+") imported"
                 )
               except GulagDBException as e:
@@ -203,7 +209,7 @@ class Gulag:
     logging.info(whoami(self) + "QuarMails to purge:  " + str(len(
       self.db.get_deprecated_mails(self.config['cleaner']['retention_period'])
      )))
-  
+
   def get_mailboxes(self):
     try:
       return self.db.get_mailboxes()
@@ -234,7 +240,7 @@ class Gulag:
         mailbox = self.db.get_mailbox(mailbox_id)
       except GulagDBException as e:
         logging.warning(whoami(self) + e.message)
-        raise GulagException(whoami(self) + e.message) from e 
+        raise GulagException(whoami(self) + e.message) from e
       imap_mb = None
       try:
         imap_mb = IMAPmailbox(mailbox)
@@ -250,7 +256,7 @@ class Gulag:
           logging.warning(whoami(self) + e.message)
           raise GulagException(whoami(self) + e.message) from e
     return qms_db
-  
+
   def get_quarmail(self,args):
     qm_db = None
     try:
@@ -266,11 +272,13 @@ class Gulag:
       mailbox = self.db.get_mailbox(qm_db['mailbox_id'])
     except GulagDBException as e:
       logging.warning(whoami(self) + e.message)
-      raise GulagException(whoami(self) + e.message) from e 
+      raise GulagException(whoami(self) + e.message) from e
     imap_mb = None
     try:
       imap_mb = IMAPmailbox(mailbox)
-      qm_db['rfc822_message'] = imap_mb.get_message(qm_db['imap_uid']).decode("utf-8")
+      qm_db['rfc822_message'] = imap_mb.get_message(
+        qm_db['imap_uid']
+      ).decode("utf-8")
       return qm_db
     except IMAPmailboxException as e:
       logging.warning(whoami(self) + e.message)
@@ -288,7 +296,7 @@ class Gulag:
       mailbox = self.db.get_mailbox(qm_db['mailbox_id'])
     except GulagDBException as e:
       logging.warning(whoami(self) + e.message)
-      raise GulagException(whoami(self) + e.message) from e 
+      raise GulagException(whoami(self) + e.message) from e
     # Delete QuarMail from IMAP mailbox
     imap_mb = None
     try:
@@ -322,7 +330,7 @@ class Gulag:
     except GulagDBException as e:
       logging.warning(whoami(self) + e.message)
       raise GulagException(whoami(self) + e.message) from e
-  
+
   def get_quarmail_attachment(self,args):
     qmat_db = None
     try:
@@ -340,7 +348,7 @@ class Gulag:
       mailbox = self.db.get_mailbox(qmat_db['mailbox_id'])
     except GulagDBException as e:
       logging.warning(whoami(self) + e.message)
-      raise GulagException(whoami(self) + e.message) from e 
+      raise GulagException(whoami(self) + e.message) from e
     imap_mb = None
     try:
       imap_mb = IMAPmailbox(mailbox)
@@ -379,7 +387,7 @@ class Gulag:
       mailbox = self.db.get_mailbox(qm_db['mailbox_id'])
     except GulagDBException as e:
       logging.warning(whoami(self) + e.message)
-      raise GulagException(whoami(self) + e.message) from e 
+      raise GulagException(whoami(self) + e.message) from e
     imap_mb = None
     try:
       imap_mb = IMAPmailbox(mailbox)
@@ -394,7 +402,7 @@ class Gulag:
     except IMAPmailboxException as e:
       logging.warning(whoami(self) + e.message)
       raise GulagException(whoami(self) + e.message) from e
-    
+
   def rspamd_http2imap(self,args):
     mailbox = None
     try:
@@ -404,41 +412,41 @@ class Gulag:
     # check if the request comes really from rspamd´s metadata_exporter
     # default metadata_header prefix 'X-Rspamd' will be expected
     if('X-Rspamd-From' not in args['req_headers']):
-      err = str(whoami(self) 
+      err = str(whoami(self)
         + "Missing Rspamd-specific request header X-Rspamd-From!"
       )
       logging.error(err)
       raise GulagException(err)
-    # Prepend Gulag-specific headers to rejected mail 
+    # Prepend Gulag-specific headers to rejected mail
     # before pushing into quarantine mailbox
     msg = None
     try:
       if('X-Rspamd-From' not in args['req_headers']):
-        err = str(whoami(self) 
+        err = str(whoami(self)
           + "Missing Rspamd-specific request header X-Rspamd-From!"
         )
         logging.error(err)
         raise GulagException(err)
       if('X-Rspamd-Rcpt' not in args['req_headers']):
-        err = str(whoami(self) 
+        err = str(whoami(self)
           + "Missing Rspamd-specific request header X-Rspamd-Rcpt!"
         )
         logging.error(err)
         raise GulagException(err)
       if('X-Rspamd-Symbols' not in args['req_headers']):
-        err = str(whoami(self) 
+        err = str(whoami(self)
           + "Missing Rspamd-specific request header X-Rspamd-Symbols!"
         )
         logging.error(err)
         raise GulagException(err)
       if('X-Rspamd-Qid' not in args['req_headers']):
-        err = str(whoami(self) 
+        err = str(whoami(self)
           + "Missing Rspamd-specific request header X-Rspamd-Qid!"
         )
         logging.error(err)
         raise GulagException(err)
       if('rfc822_message' not in args):
-        err = str(whoami(self) 
+        err = str(whoami(self)
           + "Missing rfc822_message!"
         )
         logging.error(err)
@@ -449,9 +457,9 @@ class Gulag:
         if(len(rcpts_hdr) > 0):
           rcpts_hdr += "," + rcpt
         else:
-          rcpts_hdr = rcpt 
+          rcpts_hdr = rcpt
       msg = "Return-Path: <" + args['req_headers']['X-Rspamd-From'] + ">\r\n"
-      msg += "Received: from rspamd_http2imap relay by gulag-mailbox " 
+      msg += "Received: from rspamd_http2imap relay by gulag-mailbox "
       msg += args['mailbox_id'] + "\r\n"
       msg += "X-Envelope-To-Blocked: " + rcpts_hdr + "\r\n"
       msg += "X-Spam-Status: " + args['req_headers']['X-Rspamd-Symbols'] + "\r\n"
@@ -468,4 +476,3 @@ class Gulag:
       imap_mb.append_message(msg)
     except IMAPmailboxException as e:
       raise GulagException(whoami(self) + e.message) from e
-

@@ -129,7 +129,7 @@ paths:
           description: bad input parameter
         500:
           description: server error
-          
+
   /quarmails/{quarmail_id}:
     get:
       summary: retrieves a quarantined email
@@ -152,6 +152,24 @@ paths:
           description: quarantined email object
           schema:
             $ref: '#/definitions/QuarMail'
+        400:
+          description: bad input parameter
+        500:
+          description: server error
+    delete:
+      summary: deletes a quarantined email
+      operationId: delete_quarmail
+      produces:
+      - application/json
+      parameters:
+      - in: path
+        name: quarmail_id
+        description: unique id of quarantined email
+        required: true
+        type: integer
+      responses:
+        200:
+          description: quarantined email deleted
         400:
           description: bad input parameter
         500:
@@ -180,7 +198,7 @@ paths:
           description: bad input parameter
         500:
           description: server error
-          
+
   /quarmails/{quarmail_id}/attachments/{attachment_id}:
     get:
       summary: retrieves a quarantined email
@@ -212,7 +230,7 @@ paths:
           description: bad input parameter
         500:
           description: server error
-          
+
   /quarmails/{quarmail_id}/uris:
     get:
       summary: "retrieves all URIS from any main MIME part (text/plain,text/html)"
