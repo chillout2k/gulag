@@ -83,7 +83,8 @@ class Gulag:
         uris = {}
         uid = unseen['imap_uid']
         msg = email.message_from_bytes(unseen['msg'])
-        msg_size = len(msg)
+#        msg_size = len(msg)
+        msg_size = len(msg.as_string())
         r5321_from = email.header.decode_header(msg['Return-Path'])[0][0]
         if(r5321_from is not '<>'):
           r5321_from = r5321_from.replace("<","")
