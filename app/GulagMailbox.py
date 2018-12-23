@@ -69,6 +69,19 @@ class IMAPmailbox:
       )
     return data[0][1]
 
+  def delete_message(self,imap_uid):
+    rv, data = self.mailbox.uid('STORE', str(imap_uid), '+FLAGS', '(\\Deleted)')
+    if rv != 'OK':
+      raise IMAPmailboxException(whoami(self) + 
+        "ERROR flagging message for deletion: %s", str(imap_uid)
+      )
+    rv, data = self.mailbox.expunge()
+    if rv != 'OK':
+      raise IMAPmailboxException(whoami(self) + 
+        "ERROR expunging mailbox"
+      )
+    return True
+
   def get_attachment(self,imap_uid,filename):
     msg = email.message_from_bytes(self.get_message(imap_uid))
     for part in msg.walk():

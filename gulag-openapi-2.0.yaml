@@ -113,6 +113,11 @@ paths:
         description: IMAP UID of a quarantined email
         type: string
         required: false
+      - in: query
+        name: rfc822_message
+        type: string
+        required: false
+        description: get full RFC822 email message for each QuarMail object
       responses:
         200:
           description: search results matching criteria

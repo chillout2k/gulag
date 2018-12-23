@@ -83,7 +83,6 @@ class Gulag:
         uris = {}
         uid = unseen['imap_uid']
         msg = email.message_from_bytes(unseen['msg'])
-#        msg_size = len(msg)
         msg_size = len(msg.as_string())
         r5321_from = email.header.decode_header(msg['Return-Path'])[0][0]
         if(r5321_from is not '<>'):
@@ -168,7 +167,6 @@ class Gulag:
           ctype = part.get_content_type()
           if(ctype == 'text/plain' or ctype == 'text/html'):
             curis = {}
-#            curis = extract_uris(part.get_payload(decode=True).decode("utf-8"))
             curis = extract_uris(part.get_payload(decode=True).decode("utf-8","replace"))
             if(len(curis) > 0):
               logging.info(whoami(self) + "CURIS: " + str(curis))
@@ -225,7 +223,7 @@ class Gulag:
       ) from e
     if 'rfc822_message' not in args:
       return qms_db
-    # collect all IMAP mailboxes to read from
+    # recognise all IMAP mailboxes to read from
     mailboxes = {}
     for qm in qms_db:
       if qm['mailbox_id'] not in mailboxes:
@@ -244,10 +242,13 @@ class Gulag:
         logging.warning(whoami(self) + e.message)
         raise GulagException(whoami(self) + e.message) from e
       for qm_db in qms_db:
-        qm_db['rfc822_message'] = imap_mb.get_message(qm_db['imap_uid']).decode("utf-8")
-        logging.info(whoami(self) + 
-          str(qm_db['imap_uid']) + " size: " + str(qm_db['msg_size'])
-        )
+        try:
+          qm_db['rfc822_message'] = imap_mb.get_message(
+            qm_db['imap_uid']
+          ).decode("utf-8")
+        except IMAPmailboxException as e:
+          logging.warning(whoami(self) + e.message)
+          raise GulagException(whoami(self) + e.message) from e
     return qms_db
   
   def get_quarmail(self,args):
@@ -274,6 +275,46 @@ class Gulag:
     except IMAPmailboxException as e:
       logging.warning(whoami(self) + e.message)
       raise GulagException(whoami(self) + e.message) from e
+
+  def delete_quarmail(self, args):
+    qm_db = None
+    try:
+      qm_db = self.db.get_quarmail({"id": args['quarmail_id']})
+    except GulagDBException as e:
+      logging.warning(whoami(self) + e.message)
+      raise GulagException(whoami(self) + e.message) from e
+    mailbox = None
+    try:
+      mailbox = self.db.get_mailbox(qm_db['mailbox_id'])
+    except GulagDBException as e:
+      logging.warning(whoami(self) + e.message)
+      raise GulagException(whoami(self) + e.message) from e 
+    # Delete QuarMail from IMAP mailbox
+    imap_mb = None
+    try:
+      imap_mb = IMAPmailbox(mailbox)
+      imap_mb.delete_message(qm_db['imap_uid'])
+    except IMAPmailboxException as e:
+      logging.warning(whoami(self) + e.message)
+      raise GulagException(whoami(self) + e.message) from e
+    # Try to remove related objects (attachments, uris, ...)
+    try:
+      self.db.delete_quarmail_attachments(args['quarmail_id'])
+    except GulagDBException as e:
+      logging.warning(whoami(self) + e.message)
+      # No exception, as other quarmails may pointer to one of the attachments as well
+    try:
+      self.db.delete_quarmail_uris(args['quarmail_id'])
+    except GulagDBException as e:
+      logging.warning(whoami(self) + e.message)
+      # No exception, as other quarmails may pointer to one of the uris as well
+    # Finally delete QuarMail from DB
+    try:
+      self.db.delete_quarmail(args['quarmail_id'])
+    except GulagDBException as e:
+      logging.warning(whoami(self) + e.message)
+      raise GulagException(whoami(self) + e.message) from e
+    return True
 
   def get_quarmail_attachments(self,args):
     try:

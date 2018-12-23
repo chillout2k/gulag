@@ -173,15 +173,15 @@ class GulagDB:
     except mariadb.Error as e:
       raise GulagDBException(whoami(self) + (e)) from e
 
-  def del_quarmail(self, id):
+  def delete_quarmail(self, id):
     try:
       cursor = self.conn.cursor()
-      cursor.execute("delete from QuarMails where id=%s;", (id))
+      cursor.execute("delete from QuarMails where id=" + str(id))
       cursor.close()
       return True
     except mariadb.Error as e:
       raise GulagDBException(whoami(self) + str(e)) from e
-
+   
   def get_quarmails(self,args):
     try: 
       cursor = self.conn.cursor()
@@ -378,6 +378,19 @@ class GulagDB:
     except mariadb.Error as e:
       raise GulagDBException(whoami(self) + str(e)) from e
 
+  def delete_quarmail_attachments(self, quarmail_id):
+    cursor = None
+    try:
+      cursor = self.conn.cursor()
+    except mariadb.Error as e:
+      raise GulagDBException(whoami(self) + str(e)) from e
+    for qm_at in self.get_quarmail_attachments(quarmail_id):
+      try:
+        cursor.execute("delete from Attachments where id=" + str(qm_at['id']))
+      except mariadb.Error as e:
+        raise GulagDBException(whoami(self) + str(e)) from e
+    cursor.close()
+    return True
   
   def quarmail2attachment(self,quarmail_id,attachment_id):
     try:
@@ -399,17 +412,6 @@ class GulagDB:
       return cursor.lastrowid
     except mariadb.Error as e:
       raise GulagDBException(whoami(self) + str(e)) from e
-
-  def del_uri(self,uri_id):
-    try:
-      cursor = self.conn.cursor()
-      cursor.execute(
-        "delete from URIs where uri_id=" +  uri_id + ";"
-      )
-      return cursor.lastrowid
-    except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + str(e)) from e
-
 
   def quarmail2uri(self,quarmail_id,uri_id):
     try:
@@ -447,3 +449,18 @@ class GulagDB:
       return results
     except mariadb.Error as e:
       raise GulagDBException(whoami(self) + str(e)) from e
+
+  def delete_quarmail_uris(self, quarmail_id):
+    cursor = None
+    try:
+      cursor = self.conn.cursor()
+    except mariadb.Error as e:
+      raise GulagDBException(whoami(self) + str(e)) from e
+    for qm_uri in self.get_quarmail_uris(quarmail_id):
+      try:
+        cursor.execute("delete from URIs where id=" + str(qm_uri['id']))
+      except mariadb.Error as e:
+        raise GulagDBException(whoami(self) + str(e)) from e
+    cursor.close()
+    return True
+
