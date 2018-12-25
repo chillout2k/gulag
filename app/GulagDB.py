@@ -5,6 +5,7 @@ from Entities import(
   AttachmentException,URI,URIException
 )
 from GulagUtils import whoami
+import json
 
 class GulagDBException(Exception):
   message = None
@@ -14,6 +15,7 @@ class GulagDBException(Exception):
 class GulagDB:
   conn = None
   uri_prefixes = None
+  vcols = None
 
   def __init__(self, args, uri_prefixes):
     try:
@@ -34,12 +36,15 @@ class GulagDB:
           autocommit=True
         )
       self.uri_prefixes = uri_prefixes
+      # virtual columns cannot not be stated in where-clause
+      self.vcols['attach_count'] = {}
+      self.vcols['uri_count'] = {}
     except mariadb.Error as e:
       raise GulagDBException(whoami(self) + str(e)) from e
 
   def close(self):
     self.conn.close()
- 
+
   def get_fields(self,table_name):
     try:
       cursor = self.conn.cursor()
@@ -47,7 +52,7 @@ class GulagDB:
       cursor.execute(query)
       data = cursor.fetchall()
       if not data:
-        raise GulagDBException(whoami(self) 
+        raise GulagDBException(whoami(self)
           + "describe " + table_name + " failed!"
         )
       desc = cursor.description
@@ -62,7 +67,7 @@ class GulagDB:
       raise GulagDBException(whoami(self) + str(e)) from e
 
   def get_limit_clause(self,args):
-    if('query_offset' in args and 'query_limit' in args): 
+    if('query_offset' in args and 'query_limit' in args):
       try:
         int(args['query_offset'])
       except ValueError:
@@ -73,7 +78,7 @@ class GulagDB:
         raise GulagDBException(whoami(self) + "query_limit must be numeric!")
       return "limit "+args['query_offset']+","+args['query_limit']
     elif('query_offset' in args and 'query_limit' not in args):
-      raise GulagDBException(whois(self) + 
+      raise GulagDBException(whois(self) +
         "query_offset without query_limit is useless!"
       )
     elif('query_limit' in args and 'query_offset' not in args):
@@ -94,16 +99,43 @@ class GulagDB:
          or arg == 'rfc822_message'):
         continue
       if(cnt == 0):
-        where_clause += "where " + arg + "='" + args[arg] + "' "
+        if arg in self.vcols:
+          where_clause += "having " + arg + "='" + args[arg] + "' "
+        else:
+          where_clause += "where " + arg + "='" + args[arg] + "' "
       else:
         where_clause += "and " + arg + "='" + args[arg] + "' "
       cnt += 1
     return where_clause
 
-  def parse_filters(self,filters):
-    # TODO
-    # {"groupOp":"AND","rules":[{"field":"Customer","op":"eq","data":"eosp"}]}
-    return True
+def get_where_clause_from_filters(self,filters_json):
+  # {"groupOp":"AND","rules":[{"field":"available","op":"eq","data":"true"}]}
+  filters = None
+  where_clause = ""
+  try:
+    filters = json.loads(filters_json)
+  except json.JSONDecodeError as e:
+    raise GulagDBException(whoami(self) + "JSON parse error: " + e.msg) from e
+  for rule in filters['rules']:
+    field_op_data = None
+    if(rule['op'] == 'eq'):
+      field_op_data = rule['field'] + "='" + rule['data'] + "'"
+    elif(rule['op'] == 'bw'):
+      field_op_data =  rule['field'] + " like '" + rule['data'] + "%'"
+    elif(rule['op'] == 'ew'):
+      field_op_data = rule['field'] + " like '%" + rule['data'] + "'"
+    elif(rule['op'] == 'cn'):
+      field_op_data = rule['field'] + " like '%" + rule['data'] + "%'"
+    if(field_op_data == None):
+      raise GulagDBException(whoami(self) + "invalid rule-op: " + rule['op'])
+    if(len(filters['rules']) == 1 or len(where_clause) == 0):
+      if rule['field'] in self.vcols:
+        where_clause = "having " + field_op_data
+      else:
+        where_clause = "where " + field_op_data
+    else:
+      where_clause += " " + filters['groupOp'] + " " + field_op_data
+  return where_clause
 
   def get_mailboxes(self):
     try:
@@ -151,7 +183,7 @@ class GulagDB:
         raise GulagDBException(whoami(self) + e.message) from e
     except mariadb.Error as e:
       raise GulagDBException(whoami(self) + str(e)) from e
- 
+
   def add_quarmail(self, quarmail):
     try:
       cursor = self.conn.cursor()
@@ -181,15 +213,20 @@ class GulagDB:
       return True
     except mariadb.Error as e:
       raise GulagDBException(whoami(self) + str(e)) from e
-   
+
   def get_quarmails(self,args):
-    try: 
+    where_clause = ""
+    if 'filters' in args:
+      where_clause = self.get_where_clause_from_filters(args['filters'])
+    else:
+      where_clause = self.get_where_clause(args)
+    try:
       cursor = self.conn.cursor()
       query = "select *,(select count(*) from QuarMail2Attachment"
       query += " where QuarMails.id=QuarMail2Attachment.quarmail_id) as attach_count,"
       query += " (select count(*) from QuarMail2URI"
       query += " where QuarMails.id=QuarMail2URI.quarmail_id) as uri_count"
-      query += " from QuarMails " + self.get_where_clause(args)
+      query += " from QuarMails " + where_clause
       query += " " + self.get_limit_clause(args) + " ;"
       cursor.execute(query)
       results = []
@@ -276,11 +313,11 @@ class GulagDB:
       return cursor.lastrowid
     except mariadb.Error as e:
       raise GulagDBException(whoami(self) + str(e)) from e
- 
+
   def get_attachments(self):
     try:
       query = "select Attachments.*,QuarMails.mailbox_id,QuarMails.imap_uid"
-      query += " from QuarMail2Attachment" 
+      query += " from QuarMail2Attachment"
       query += " left join QuarMails ON QuarMails.id = QuarMail2Attachment.quarmail_id"
       query += " left join Attachments ON Attachments.id = QuarMail2Attachment.attachment_id"
       query += " group by id;"
@@ -300,12 +337,12 @@ class GulagDB:
       return results
     except mariadb.Error as e:
       raise GulagDBException(whoami(self) + str(e)) from e
-  
+
   def get_attachment(self, args):
     try:
       cursor = self.conn.cursor()
       query = "select Attachments.*,QuarMails.mailbox_id,QuarMails.imap_uid"
-      query += " from QuarMail2Attachment" 
+      query += " from QuarMail2Attachment"
       query += " left join QuarMails ON QuarMails.id = QuarMail2Attachment.quarmail_id"
       query += " left join Attachments ON Attachments.id = QuarMail2Attachment.attachment_id"
       query += " where id=" + str(args['id']) + ";"
@@ -324,7 +361,7 @@ class GulagDB:
       return Attachment(dict).__dict__
     except mariadb.Error as e:
       raise GulagDBException(whoami(self) + str(e)) from e
-  
+
   def get_quarmail_attachments(self,quarmail_id):
     try:
       query = "select Attachments.*,QuarMails.mailbox_id,QuarMails.imap_uid"
@@ -345,7 +382,7 @@ class GulagDB:
         dict = {}
         for (name, value) in zip(desc, tuple):
           dict[name[0]] = value
-        dict['href'] = self.uri_prefixes['quarmails'] + str(quarmail_id) 
+        dict['href'] = self.uri_prefixes['quarmails'] + str(quarmail_id)
         dict['href'] += "/attachments/" + str(dict['id'])
         results.append(Attachment(dict).__dict__)
       return results
@@ -391,7 +428,7 @@ class GulagDB:
         raise GulagDBException(whoami(self) + str(e)) from e
     cursor.close()
     return True
-  
+
   def quarmail2attachment(self,quarmail_id,attachment_id):
     try:
       cursor = self.conn.cursor()
@@ -422,7 +459,7 @@ class GulagDB:
       )
     except mariadb.Error as e:
       raise GulagDBException(whoami(self) + str(e)) from e
-    
+
   def get_quarmail_uris(self,quarmail_id):
     try:
       query = "select URIs.*"
@@ -463,4 +500,3 @@ class GulagDB:
         raise GulagDBException(whoami(self) + str(e)) from e
     cursor.close()
     return True
-

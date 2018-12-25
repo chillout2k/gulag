@@ -59,7 +59,7 @@ class Gulag:
     for arg in args:
       if(arg == 'query_offset' or arg == 'query_limit'
          or arg == 'sort_index' or arg == 'sort_order'
-         or arg == 'rfc822_message'):
+         or arg == 'rfc822_message' or arg == 'filters'):
         continue
       if arg not in self.fields[fields_target]:
         raise GulagException(
@@ -229,7 +229,7 @@ class Gulag:
       ) from e
     if 'rfc822_message' not in args:
       return qms_db
-    # recognise all IMAP mailboxes to read from
+    # recognize all IMAP mailboxes to read from
     mailboxes = {}
     for qm in qms_db:
       if qm['mailbox_id'] not in mailboxes:
