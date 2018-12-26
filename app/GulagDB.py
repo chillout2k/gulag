@@ -15,7 +15,7 @@ class GulagDBException(Exception):
 class GulagDB:
   conn = None
   uri_prefixes = None
-  vcols = None
+  vcols = {}
 
   def __init__(self, args, uri_prefixes):
     try:
@@ -35,12 +35,12 @@ class GulagDB:
           database=args['name'],
           autocommit=True
         )
-      self.uri_prefixes = uri_prefixes
-      # virtual columns cannot not be stated in where-clause
-      self.vcols['attach_count'] = {}
-      self.vcols['uri_count'] = {}
     except mariadb.Error as e:
       raise GulagDBException(whoami(self) + str(e)) from e
+    self.uri_prefixes = uri_prefixes
+    # virtual columns cannot not be stated in where-clause
+    self.vcols['attach_count'] = {}
+    self.vcols['uri_count'] = {}
 
   def close(self):
     self.conn.close()
@@ -108,34 +108,36 @@ class GulagDB:
       cnt += 1
     return where_clause
 
-def get_where_clause_from_filters(self,filters_json):
-  # {"groupOp":"AND","rules":[{"field":"available","op":"eq","data":"true"}]}
-  filters = None
-  where_clause = ""
-  try:
-    filters = json.loads(filters_json)
-  except json.JSONDecodeError as e:
-    raise GulagDBException(whoami(self) + "JSON parse error: " + e.msg) from e
-  for rule in filters['rules']:
-    field_op_data = None
-    if(rule['op'] == 'eq'):
-      field_op_data = rule['field'] + "='" + rule['data'] + "'"
-    elif(rule['op'] == 'bw'):
-      field_op_data =  rule['field'] + " like '" + rule['data'] + "%'"
-    elif(rule['op'] == 'ew'):
-      field_op_data = rule['field'] + " like '%" + rule['data'] + "'"
-    elif(rule['op'] == 'cn'):
-      field_op_data = rule['field'] + " like '%" + rule['data'] + "%'"
-    if(field_op_data == None):
-      raise GulagDBException(whoami(self) + "invalid rule-op: " + rule['op'])
-    if(len(filters['rules']) == 1 or len(where_clause) == 0):
-      if rule['field'] in self.vcols:
-        where_clause = "having " + field_op_data
+  def get_where_clause_from_filters(self,filters_json):
+    # {"groupOp":"AND","rules":[{"field":"uri_count","op":"eq","data":"3"}]}
+    filters = None
+    where_clause = ""
+    try:
+      filters = json.loads(filters_json)
+    except json.JSONDecodeError as e:
+      raise GulagDBException(whoami(self) + "JSON parse error: " + e.msg) from e
+    for rule in filters['rules']:
+      field_op_data = None
+      if(rule['op'] == 'eq'):
+        field_op_data = rule['field'] + "='" + rule['data'] + "'"
+      elif(rule['op'] == 'bw'):
+        field_op_data =  rule['field'] + " like '" + rule['data'] + "%'"
+      elif(rule['op'] == 'ew'):
+        field_op_data = rule['field'] + " like '%" + rule['data'] + "'"
+      elif(rule['op'] == 'cn'):
+        field_op_data = rule['field'] + " like '%" + rule['data'] + "%'"
+      elif(rule['op'] == 'ne'):
+        field_op_data = rule['field'] + " <>'" + rule['data'] + "'"
+      if(field_op_data == None):
+        raise GulagDBException(whoami(self) + "invalid rule-op: " + rule['op'])
+      if(len(filters['rules']) == 1 or len(where_clause) == 0):
+        if rule['field'] in self.vcols:
+          where_clause = "having " + field_op_data
+        else:
+          where_clause = "where " + field_op_data
       else:
-        where_clause = "where " + field_op_data
-    else:
-      where_clause += " " + filters['groupOp'] + " " + field_op_data
-  return where_clause
+        where_clause += " " + filters['groupOp'] + " " + field_op_data
+    return where_clause
 
   def get_mailboxes(self):
     try:

@@ -59,7 +59,8 @@ class Gulag:
     for arg in args:
       if(arg == 'query_offset' or arg == 'query_limit'
          or arg == 'sort_index' or arg == 'sort_order'
-         or arg == 'rfc822_message' or arg == 'filters'):
+         or arg == 'rfc822_message' or arg == 'filters'
+         or arg in self.db.vcols):
         continue
       if arg not in self.fields[fields_target]:
         raise GulagException(

@@ -118,6 +118,11 @@ paths:
         type: string
         required: false
         description: get full RFC822 email message for each QuarMail object
+      - in: query
+        name: filters
+        type: string
+        required: false
+        description: jqgrid-style search filter
       responses:
         200:
           description: search results matching criteria

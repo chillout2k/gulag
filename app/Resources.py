@@ -89,7 +89,7 @@ class ResQuarMailAttachment(GulagResource):
       abort(400, message=e.message)
 
 class ResQuarMailURIs(GulagResource):
-  def get(self,quarmail_id): 
+  def get(self,quarmail_id):
     args = {
       "quarmail_id": quarmail_id
     }
@@ -125,4 +125,3 @@ class ResRSPAMDImporter(GulagResource):
       return {"resource: ": "HTTP2IMAP for RSPAMD"}
     except GulagException as e:
       abort(400, message=e.message)
-
