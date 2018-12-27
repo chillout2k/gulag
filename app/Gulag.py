@@ -231,11 +231,12 @@ class Gulag:
     if 'rfc822_message' not in args:
       return qms_db
     # recognize all IMAP mailboxes to read from
+    # and store rfc822-messages under it
     mailboxes = {}
     for qm in qms_db:
       if qm['mailbox_id'] not in mailboxes:
-        mailboxes[qm['mailbox_id']] = []
-    #  any qm_db with full RFC822 messages from IMAP mailbox
+        mailboxes[qm['mailbox_id']] = {}
+    # any qm_db with full RFC822 messages from IMAP mailbox
     for mailbox_id in mailboxes:
       try:
         mailbox = self.db.get_mailbox(mailbox_id)
@@ -249,14 +250,20 @@ class Gulag:
         logging.warning(whoami(self) + e.message)
         raise GulagException(whoami(self) + e.message) from e
       for qm_db in qms_db:
-        try:
-          qm_db['rfc822_message'] = imap_mb.get_message(
-            qm_db['imap_uid']
-          ).decode("utf-8")
-        except IMAPmailboxException as e:
-          logging.warning(whoami(self) + e.message)
-          raise GulagException(whoami(self) + e.message) from e
-    return qms_db
+        if qm_db['imap_uid'] not in mailboxes[mailbox_id]:
+          try:
+            mailboxes[mailbox_id][qm_db['imap_uid']] = imap_mb.get_message(
+              qm_db['imap_uid']
+            ).decode("utf-8")
+          except IMAPmailboxException as e:
+            logging.warning(whoami(self) + e.message)
+            raise GulagException(whoami(self) + e.message) from e
+      imap_mb.close()
+    # end for mailboxes
+    return {
+      "quarmails": qms_db,
+      "rfc822_messages": mailboxes
+    }
 
   def get_quarmail(self,args):
     qm_db = None

@@ -78,7 +78,7 @@ class GulagDB:
         raise GulagDBException(whoami(self) + "query_limit must be numeric!")
       return "limit "+args['query_offset']+","+args['query_limit']
     elif('query_offset' in args and 'query_limit' not in args):
-      raise GulagDBException(whois(self) +
+      raise GulagDBException(whoami(self) +
         "query_offset without query_limit is useless!"
       )
     elif('query_limit' in args and 'query_offset' not in args):
