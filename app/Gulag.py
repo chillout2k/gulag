@@ -175,7 +175,6 @@ class Gulag:
               part.get_payload(decode=True).decode("utf-8","replace")
             )
             if(len(curis) > 0):
-              logging.info(whoami(self) + "CURIS: " + str(curis))
               uris = {**uris, **curis}
         # End for msg.walk()
         # link message with attachments
@@ -229,7 +228,10 @@ class Gulag:
         whoami(self) + e.message
       ) from e
     if 'rfc822_message' not in args:
-      return qms_db
+      return {
+        'quarmails': qms_db,
+        'rfc822_messages': {}
+      }
     # recognize all IMAP mailboxes to read from
     # and store rfc822-messages under it
     mailboxes = {}
@@ -287,6 +289,7 @@ class Gulag:
       qm_db['rfc822_message'] = imap_mb.get_message(
         qm_db['imap_uid']
       ).decode("utf-8")
+      imap_mb.close()
       return qm_db
     except IMAPmailboxException as e:
       logging.warning(whoami(self) + e.message)
@@ -330,6 +333,7 @@ class Gulag:
     except GulagDBException as e:
       logging.warning(whoami(self) + e.message)
       raise GulagException(whoami(self) + e.message) from e
+    imap_mb.close()
     return True
 
   def get_quarmail_attachments(self,args):
@@ -363,6 +367,7 @@ class Gulag:
       qmat_db['data'] = imap_mb.get_attachment(
         qmat_db['imap_uid'],qmat_db['filename']
       )
+      imap_mb.close
       return qmat_db
     except IMAPmailboxException as e:
       logging.warning(whoami(self) + e.message)
@@ -406,6 +411,7 @@ class Gulag:
             "uri": uri,
             "fqdn": extract_fqdn(uri)
           })
+      imap_mb.close()
       return uris
     except IMAPmailboxException as e:
       logging.warning(whoami(self) + e.message)
@@ -481,6 +487,7 @@ class Gulag:
     imap_mb = None
     try:
       imap_mb = IMAPmailbox(mailbox)
-      imap_mb.append_message(msg)
+      imap_mb.add_message(msg)
+      imap_mb.close()
     except IMAPmailboxException as e:
       raise GulagException(whoami(self) + e.message) from e

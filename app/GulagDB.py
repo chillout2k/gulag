@@ -116,7 +116,17 @@ class GulagDB:
       filters = json.loads(filters_json)
     except json.JSONDecodeError as e:
       raise GulagDBException(whoami(self) + "JSON parse error: " + e.msg) from e
+    if 'rules' not in filters:
+      raise GulagDBException(whoami(self) + "no 'rules' found in filters!")
+    if 'groupOp' not in filters:
+      raise GulagDBException(whoami(self) + "'groupOp' not found in filters!")
     for rule in filters['rules']:
+      if 'field' not in rule:
+        raise GulagDBException(whoami(self) + "'field' not found in rule!")
+      if 'op' not in rule:
+        raise GulagDBException(whoami(self) + "'op' not found in rule!")
+      if 'data' not in rule:
+        raise GulagDBException(whoami(self) + "'data' not found in rule!")
       field_op_data = None
       if(rule['op'] == 'eq'):
         field_op_data = rule['field'] + "='" + rule['data'] + "'"
@@ -217,12 +227,12 @@ class GulagDB:
       raise GulagDBException(whoami(self) + str(e)) from e
 
   def get_quarmails(self,args):
-    where_clause = ""
-    if 'filters' in args:
-      where_clause = self.get_where_clause_from_filters(args['filters'])
-    else:
-      where_clause = self.get_where_clause(args)
     try:
+      where_clause = ""
+      if 'filters' in args:
+        where_clause = self.get_where_clause_from_filters(args['filters'])
+      else:
+        where_clause = self.get_where_clause(args)
       cursor = self.conn.cursor()
       query = "select *,(select count(*) from QuarMail2Attachment"
       query += " where QuarMails.id=QuarMail2Attachment.quarmail_id) as attach_count,"
@@ -234,7 +244,7 @@ class GulagDB:
       results = []
       data = cursor.fetchall()
       if not data:
-        raise GulagDBException(whoami(self) + "No QuarMails found in DB!")
+        return results
       desc = cursor.description
       cursor.close()
       for tuple in data:
@@ -328,7 +338,7 @@ class GulagDB:
       results = []
       data = cursor.fetchall()
       if not data:
-        raise GulagDBException(whoami(self) + "No attachments found!")
+        return results
       desc = cursor.description
       for tuple in data:
         dict = {}
@@ -376,9 +386,7 @@ class GulagDB:
       results = []
       data = cursor.fetchall()
       if not data:
-        raise GulagDBException(whoami(self)
-          + "QuarMail("+ str(quarmail_id) +") has no attachments!"
-        )
+        return results
       desc = cursor.description
       for tuple in data:
         dict = {}
@@ -474,9 +482,7 @@ class GulagDB:
       results = []
       data = cursor.fetchall()
       if not data:
-        raise GulagDBException(whoami(self)
-          + "QuarMail("+ str(quarmail_id) +") has no uris!"
-        )
+        return results
       desc = cursor.description
       for tuple in data:
         dict = {}

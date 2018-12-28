@@ -34,7 +34,7 @@ class IMAPmailbox:
       raise IMAPmailboxException(whoami(self) +
         self.imap_user + ": IMAP server " + self.imap_server + " refused connection"
       ) from e
-    
+
     rv, data = self.mailbox.select(self.imap_mailbox)
     if rv != 'OK':
       raise IMAPmailboxException(whoami(self) +
@@ -61,10 +61,22 @@ class IMAPmailbox:
       })
     return results
 
+  def add_message(self,message):
+    rv, data = self.mailbox.append(
+      self.imap_mailbox,
+      'UNSEEN',
+      imaplib.Time2Internaldate(time.time()),
+      str(message).encode('utf-8')
+    )
+    if rv != 'OK':
+      raise IMAPmailboxException(whoami(self)+
+        "ERROR appending message: " + rv
+      )
+
   def get_message(self,imap_uid):
     rv, data = self.mailbox.uid('FETCH', str(imap_uid), '(RFC822)')
     if rv != 'OK':
-      raise IMAPmailboxException(whoami(self) + 
+      raise IMAPmailboxException(whoami(self) +
         "ERROR getting message: %s", str(imap_uid)
       )
     return data[0][1]
@@ -72,12 +84,12 @@ class IMAPmailbox:
   def delete_message(self,imap_uid):
     rv, data = self.mailbox.uid('STORE', str(imap_uid), '+FLAGS', '(\\Deleted)')
     if rv != 'OK':
-      raise IMAPmailboxException(whoami(self) + 
+      raise IMAPmailboxException(whoami(self) +
         "ERROR flagging message for deletion: %s", str(imap_uid)
       )
     rv, data = self.mailbox.expunge()
     if rv != 'OK':
-      raise IMAPmailboxException(whoami(self) + 
+      raise IMAPmailboxException(whoami(self) +
         "ERROR expunging mailbox"
       )
     return True
@@ -100,7 +112,7 @@ class IMAPmailbox:
       # End if part.get_filename()
     # End msg.walk() loop
     raise IMAPmailboxException(whoami(self) +
-      "Attachment ("+ str(filename) +")@IMAP UID(" + str(imap_uid) + ")@" 
+      "Attachment ("+ str(filename) +")@IMAP UID(" + str(imap_uid) + ")@"
       + str(self.email_address) + " not found!"
     )
 
@@ -116,19 +128,3 @@ class IMAPmailbox:
     raise IMAPmailboxException(whoami(self) +
       "IMAP_UID(" + str(imap_uid)+")@"+str(self.email_address)+" has no main parts!"
     )
-
-  def append_message(self,message):
-    rv, data = self.mailbox.append(
-      self.imap_mailbox,
-      'UNSEEN',
-      imaplib.Time2Internaldate(time.time()),
-      str(message).encode('utf-8')
-    )
-    if rv != 'OK':
-      raise IMAPmailboxException(whoami(self)+
-        "ERROR appending message: " + rv
-      )
-  
-  def expunge_message(self,imap_uid):
-    return True
-
