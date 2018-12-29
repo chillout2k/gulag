@@ -5,7 +5,6 @@ from Entities import(
   AttachmentException,URI,URIException
 )
 from GulagUtils import whoami
-import json
 
 class GulagDBException(Exception):
   message = None
@@ -108,18 +107,17 @@ class GulagDB:
       cnt += 1
     return where_clause
 
-  def get_where_clause_from_filters(self,filters_json):
+  def get_where_clause_from_filters(self,filters):
     # {"groupOp":"AND","rules":[{"field":"uri_count","op":"eq","data":"3"}]}
-    filters = None
-    where_clause = ""
-    try:
-      filters = json.loads(filters_json)
-    except json.JSONDecodeError as e:
-      raise GulagDBException(whoami(self) + "JSON parse error: " + e.msg) from e
     if 'rules' not in filters:
       raise GulagDBException(whoami(self) + "no 'rules' found in filters!")
     if 'groupOp' not in filters:
       raise GulagDBException(whoami(self) + "'groupOp' not found in filters!")
+    if filters['groupOp'] != 'AND' and filters['groupOp'] != 'OR':
+      raise GulagDBException(whoami(self) +
+        "invalid 'groupOp': " + filters['groupOp']
+      )
+    where_clause = ""
     for rule in filters['rules']:
       if 'field' not in rule:
         raise GulagDBException(whoami(self) + "'field' not found in rule!")
@@ -138,6 +136,10 @@ class GulagDB:
         field_op_data = rule['field'] + " like '%" + rule['data'] + "%'"
       elif(rule['op'] == 'ne'):
         field_op_data = rule['field'] + " <>'" + rule['data'] + "'"
+      elif(rule['op'] == 'gt'):
+        field_op_data = rule['field'] + " > '" + rule['data'] + "'"
+      elif(rule['op'] == 'lt'):
+        field_op_data = rule['field'] + " < '" + rule['data'] + "'"
       if(field_op_data == None):
         raise GulagDBException(whoami(self) + "invalid rule-op: " + rule['op'])
       if(len(filters['rules']) == 1 or len(where_clause) == 0):

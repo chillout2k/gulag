@@ -3,6 +3,7 @@ import email,email.header,email.message
 from GulagDB import GulagDB,GulagDBException
 from GulagMailbox import IMAPmailbox,IMAPmailboxException
 from GulagUtils import whoami,extract_uris,extract_fqdn
+import ssdeep, hashlib
 
 class GulagException(Exception):
   message = None
@@ -154,6 +155,14 @@ class Gulag:
             else:
               # filename isn´t encoded
               filename = filename[0][0]
+            logging.info(whoami(self) +
+              "SSDEEP: " + ssdeep.hash(part.get_payload(decode=True))
+            )
+            logging.info(whoami(self) +
+              "SHA256 " + hashlib.sha256(
+                part.get_payload(decode=True)
+              ).hexdigest()
+            )
             attach_magic = None
             try:
               attach_magic = magic.from_buffer(part.get_payload(decode=True))
@@ -224,9 +233,7 @@ class Gulag:
       qms_db = self.db.get_quarmails(args)
     except(GulagException,GulagDBException) as e:
       logging.warning(whoami(self) + e.message)
-      raise GulagException(
-        whoami(self) + e.message
-      ) from e
+      raise GulagException(whoami(self) + e.message) from e
     if 'rfc822_message' not in args:
       return {
         'quarmails': qms_db,

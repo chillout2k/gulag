@@ -1,6 +1,7 @@
 from flask import request
 from flask_restful import Resource, abort, reqparse
 from Gulag import GulagException
+import json
 
 class GulagResource(Resource):
   gulag = None
@@ -36,7 +37,7 @@ class ResMailboxes(GulagResource):
     try:
       return self.gulag.get_mailboxes()
     except GulagException as e:
-      abort(500, message=e.message)
+      abort(400, message=e.message)
 
 class ResMailbox(GulagResource):
   def get(self,id):
@@ -44,8 +45,14 @@ class ResMailbox(GulagResource):
 
 class ResQuarMails(GulagResource):
   def get(self):
+    args = request.args.to_dict()
+    if 'filters' in args:
+      try:
+        args['filters'] = json.loads(args['filters'])
+      except json.JSONDecodeError as e:
+        abort(400, message=whoami(self) + "JSON parse error: " + e.msg)
     try:
-      return self.gulag.get_quarmails(request.args.to_dict())
+      return self.gulag.get_quarmails(args)
     except GulagException as e:
       abort(400, message=e.message)
 

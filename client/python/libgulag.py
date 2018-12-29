@@ -31,7 +31,7 @@ class GulagClient:
   def get_quarmails(self,args):
     if 'filters' in args:
       try:
-        # jqgrid-style filters must be JSON-encoded
+        # jqgrid-style filters must be JSON-encoded before transport
         args['filters'] = json.dumps(args['filters'])
       except TypeError as e:
         raise GulagClientException(e.__str__)
