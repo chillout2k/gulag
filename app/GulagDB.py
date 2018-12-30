@@ -11,6 +11,16 @@ class GulagDBException(Exception):
   def __init__(self,message):
     self.message = str(message)
 
+class GulagDBNotFoundException(Exception):
+  message = None
+  def __init__(self,message):
+    self.message = str(message)
+
+class GulagDBBadInputException(Exception):
+  message = None
+  def __init__(self,message):
+    self.message = str(message)
+
 class GulagDB:
   conn = None
   uri_prefixes = None
@@ -51,8 +61,8 @@ class GulagDB:
       cursor.execute(query)
       data = cursor.fetchall()
       if not data:
-        raise GulagDBException(whoami(self)
-          + "describe " + table_name + " failed!"
+        raise GulagDBNotFoundException(whoami(self)
+          + "describe " + table_name + " failed: got no fields!"
         )
       desc = cursor.description
       cursor.close()
@@ -70,21 +80,25 @@ class GulagDB:
       try:
         int(args['query_offset'])
       except ValueError:
-        raise GulagDBException(whoami(self) + "query_offset must be numeric!")
+        raise GulagDBBadInputException(whoami(self) +
+          "query_offset must be numeric!"
+        )
       try:
         int(args['query_limit'])
       except ValueError:
-        raise GulagDBException(whoami(self) + "query_limit must be numeric!")
+        raise GulagDBBadInputException(whoami(self) +
+          "query_limit must be numeric!"
+        )
       return "limit "+args['query_offset']+","+args['query_limit']
     elif('query_offset' in args and 'query_limit' not in args):
-      raise GulagDBException(whoami(self) +
+      raise GulagDBBadInputException(whoami(self) +
         "query_offset without query_limit is useless!"
       )
     elif('query_limit' in args and 'query_offset' not in args):
       try:
         int(args['query_limit'])
       except ValueError:
-        raise GulagDBException(whoami(self) + "query_limit must be numeric!")
+        raise GulagDBBadInputException(whoami(self) + "query_limit must be numeric!")
       return "limit " + args['query_limit']
     else:
       return ""
@@ -110,21 +124,31 @@ class GulagDB:
   def get_where_clause_from_filters(self,filters):
     # {"groupOp":"AND","rules":[{"field":"uri_count","op":"eq","data":"3"}]}
     if 'rules' not in filters:
-      raise GulagDBException(whoami(self) + "no 'rules' found in filters!")
+      raise GulagDBBadInputException(whoami(self) +
+        "no 'rules' found in filters!"
+      )
     if 'groupOp' not in filters:
-      raise GulagDBException(whoami(self) + "'groupOp' not found in filters!")
+      raise GulagDBBadInputException(whoami(self) +
+        "'groupOp' not found in filters!"
+      )
     if filters['groupOp'] != 'AND' and filters['groupOp'] != 'OR':
-      raise GulagDBException(whoami(self) +
+      raise GulagDBBadInputException(whoami(self) +
         "invalid 'groupOp': " + filters['groupOp']
       )
     where_clause = ""
     for rule in filters['rules']:
       if 'field' not in rule:
-        raise GulagDBException(whoami(self) + "'field' not found in rule!")
+        raise GulagDBBadInputException(whoami(self) +
+          "'field' not found in rule!"
+        )
       if 'op' not in rule:
-        raise GulagDBException(whoami(self) + "'op' not found in rule!")
+        raise GulagDBBadInputException(whoami(self) +
+          "'op' not found in rule!"
+        )
       if 'data' not in rule:
-        raise GulagDBException(whoami(self) + "'data' not found in rule!")
+        raise GulagDBBadInputException(whoami(self) +
+          "'data' not found in rule!"
+        )
       field_op_data = None
       if(rule['op'] == 'eq'):
         field_op_data = rule['field'] + "='" + rule['data'] + "'"
@@ -141,7 +165,9 @@ class GulagDB:
       elif(rule['op'] == 'lt'):
         field_op_data = rule['field'] + " < '" + rule['data'] + "'"
       if(field_op_data == None):
-        raise GulagDBException(whoami(self) + "invalid rule-op: " + rule['op'])
+        raise GulagDBBadInputException(whoami(self) +
+          "invalid rule-op: " + rule['op']
+        )
       if(len(filters['rules']) == 1 or len(where_clause) == 0):
         if rule['field'] in self.vcols:
           where_clause = "having " + field_op_data
@@ -158,7 +184,7 @@ class GulagDB:
       results = []
       data = cursor.fetchall()
       if not data:
-        raise GulagDBException(whoami(self) + "No mailboxes found in DB!")
+        return results
       desc = cursor.description
       for tuple in data:
         dict = {}
@@ -182,7 +208,7 @@ class GulagDB:
       )
       data = cursor.fetchall()
       if not data:
-        raise GulagDBException(whoami(self)
+        raise GulagDBNotFoundException(whoami(self)
           + "Mailbox '" + mailbox_id + "' does not exist!"
         )
       desc = cursor.description
@@ -259,6 +285,8 @@ class GulagDB:
         dict['href'] = self.uri_prefixes['quarmails'] + str(dict['id'])
         results.append(QuarMail(dict).__dict__)
       return results
+    except GulagDBBadInputException as e:
+      raise GulagDBBadInputException(whoami(self) + e.message) from e
     except GulagDBException as e:
       raise GulagDBException(whoami(self) + e.message) from e
     except mariadb.Error as e:
@@ -275,7 +303,7 @@ class GulagDB:
       cursor.execute(query)
       data = cursor.fetchall()
       if not data:
-        raise GulagDBException(whoami(self)
+        raise GulagDBNotFoundException(whoami(self)
           + "Quarmail with id '"+ str(args['id']) + "' does not exist!"
         )
       desc = cursor.description
@@ -288,10 +316,6 @@ class GulagDB:
         else:
           dict[name[0]] = value
       dict['href'] = self.uri_prefixes['quarmails'] + str(dict['id'])
-#      try:
-#        dict['attachments'] = self.get_attachments_by_quarmail(args['id'])
-#      except GulagDBException as e:
-#        pass
       return QuarMail(dict).__dict__
     except mariadb.Error as e:
       raise GulagDBException(whoami(self) + str(e)) from e
@@ -363,7 +387,7 @@ class GulagDB:
       cursor.execute(query)
       data = cursor.fetchall()
       if not data:
-        raise GulagDBException(whoami(self)
+        raise GulagDBNotFoundException(whoami(self)
           + "Attachment("+ str(args['id']) +") does not exist!"
         )
       desc = cursor.description
@@ -413,8 +437,9 @@ class GulagDB:
       cursor.execute(query)
       data = cursor.fetchall()
       if not data:
-        raise GulagDBException(whoami(self) + "QuarMail("+ str(quarmail_id) +") "
-          + "has no attachment (" + str(attachment_id) + ")!"
+        raise GulagDBNotFoundException(whoami(self) +
+          "QuarMail("+ str(quarmail_id) +") " +
+          "has no attachment (" + str(attachment_id) + ")!"
         )
       desc = cursor.description
       tuple = data[0]
@@ -494,6 +519,36 @@ class GulagDB:
         dict['href'] += "/uris/" + str(dict['id'])
         results.append(URI(dict).__dict__)
       return results
+    except mariadb.Error as e:
+      raise GulagDBException(whoami(self) + str(e)) from e
+
+  def get_quarmail_uri(self,quarmail_id,uri_id):
+    try:
+      query = "select URIs.*"
+      query += " from QuarMail2URI"
+      query += " left join QuarMails ON QuarMails.id = QuarMail2URI.quarmail_id"
+      query += " left join URIs ON URIs.id = QuarMail2URI.uri_id"
+      query += " where QuarMails.id = " + str(quarmail_id)
+      query += " and URIs.id = " + str(uri_id) + ";"
+      cursor = self.conn.cursor()
+      cursor.execute(query)
+      data = cursor.fetchall()
+      if not data:
+        raise GulagDBNotFoundException(whoami(self) +
+          "QuarMail("+ str(quarmail_id) +")" +
+          " has no uri (" + str(uri_id) + ")!"
+        )
+      desc = cursor.description
+      tuple = data[0]
+      dict = {}
+      for (name, value) in zip(desc, tuple):
+        dict[name[0]] = value
+        dict['href'] = self.uri_prefixes['quarmails'] + str(quarmail_id)
+        dict['href'] += "/uris/" + str(dict['id'])
+      try:
+        return URI(dict).__dict__
+      except URIException as e:
+        raise GulagDBException(whoami(self) + e.message) from e
     except mariadb.Error as e:
       raise GulagDBException(whoami(self) + str(e)) from e
 

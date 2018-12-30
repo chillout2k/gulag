@@ -1,6 +1,6 @@
 swagger: '2.0'
 info:
-  description: Gulag quarantine REST API
+  description: https://app.swaggerhub.com/apis/DC-IT-Consulting/Gulag/1.0.0#/
   version: "1.0.0"
   title: Gulag quarantine REST API
   contact:
@@ -173,10 +173,10 @@ paths:
         required: true
         type: integer
       responses:
-        200:
+        202:
           description: quarantined email deleted
-        400:
-          description: bad input parameter
+        404:
+          description: not found
         500:
           description: server error
 
@@ -228,11 +228,11 @@ paths:
         required: false
       responses:
         200:
-          description: quarantined email object
+          description: attachment object
           schema:
             $ref: '#/definitions/Attachment'
-        400:
-          description: bad input parameter
+        404:
+          description: not found
         500:
           description: server error
 
@@ -262,6 +262,33 @@ paths:
               $ref: '#/definitions/URI'
         400:
           description: bad input parameter
+        500:
+          description: server error
+
+  /quarmails/{quarmail_id}/uris/{uri_id}:
+    get:
+      summary: "returns an URI by ID"
+      operationId: get_quarmail_uri
+      produces:
+      - application/json
+      parameters:
+      - in: path
+        name: quarmail_id
+        description: unique id of quarantined email
+        required: true
+        type: string
+      - in: path
+        name: uri_id
+        description: id of URI to fetch
+        required: true
+        type: string
+      responses:
+        200:
+          description: URI object
+          schema:
+            $ref: '#/definitions/URI'
+        404:
+          description: not found
         500:
           description: server error
 

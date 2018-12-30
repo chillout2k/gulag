@@ -1,11 +1,23 @@
 import json, sys,os,logging,re,magic
 import email,email.header,email.message
-from GulagDB import GulagDB,GulagDBException
+from GulagDB import (
+  GulagDB,GulagDBException,GulagDBNotFoundException,GulagDBBadInputException
+)
 from GulagMailbox import IMAPmailbox,IMAPmailboxException
 from GulagUtils import whoami,extract_uris,extract_fqdn
 import ssdeep, hashlib
 
 class GulagException(Exception):
+  message = None
+  def __init__(self,message):
+    self.message = message
+
+class GulagNotFoundException(Exception):
+  message = None
+  def __init__(self,message):
+    self.message = message
+
+class GulagBadInputException(Exception):
   message = None
   def __init__(self,message):
     self.message = message
@@ -231,6 +243,8 @@ class Gulag:
     try:
       self.check_fields('QuarMails',args)
       qms_db = self.db.get_quarmails(args)
+    except GulagDBBadInputException as e:
+      raise GulagBadInputException(whoami(self) + e.message) from e
     except(GulagException,GulagDBException) as e:
       logging.warning(whoami(self) + e.message)
       raise GulagException(whoami(self) + e.message) from e
@@ -278,6 +292,8 @@ class Gulag:
     qm_db = None
     try:
       qm_db = self.db.get_quarmail({"id": args['quarmail_id']})
+    except GulagDBNotFoundException as e:
+      raise GulagNotFoundException(whoami(self) + e.message) from e
     except GulagDBException as e:
       logging.warning(whoami(self) + e.message)
       raise GulagException(whoami(self) + e.message) from e
@@ -287,6 +303,8 @@ class Gulag:
     mailbox = None
     try:
       mailbox = self.db.get_mailbox(qm_db['mailbox_id'])
+    except GulagDBNotFoundException as e:
+      raise GulagNotFoundException(whoami(self) + e.message) from e
     except GulagDBException as e:
       logging.warning(whoami(self) + e.message)
       raise GulagException(whoami(self) + e.message) from e
@@ -306,12 +324,16 @@ class Gulag:
     qm_db = None
     try:
       qm_db = self.db.get_quarmail({"id": args['quarmail_id']})
+    except GulagDBNotFoundException as e:
+      raise GulagNotFoundException(whoami(self) + e.message) from e
     except GulagDBException as e:
       logging.warning(whoami(self) + e.message)
       raise GulagException(whoami(self) + e.message) from e
     mailbox = None
     try:
       mailbox = self.db.get_mailbox(qm_db['mailbox_id'])
+    except GulagDBNotFoundException as e:
+      raise GulagNotFoundException(whoami(self) + e.message) from e
     except GulagDBException as e:
       logging.warning(whoami(self) + e.message)
       raise GulagException(whoami(self) + e.message) from e
@@ -341,7 +363,7 @@ class Gulag:
       logging.warning(whoami(self) + e.message)
       raise GulagException(whoami(self) + e.message) from e
     imap_mb.close()
-    return True
+    return
 
   def get_quarmail_attachments(self,args):
     try:
@@ -356,6 +378,8 @@ class Gulag:
       qmat_db = self.db.get_quarmail_attachment(
         args['quarmail_id'],args['attachment_id']
       )
+    except GulagDBNotFoundException as e:
+      raise GulagNotFoundException(whoami(self) + e.message) from e
     except GulagDBException as e:
       logging.warning(whoami(self) + e.message)
       raise GulagException(whoami(self) + e.message) from e
@@ -365,6 +389,8 @@ class Gulag:
     mailbox = None
     try:
       mailbox = self.db.get_mailbox(qmat_db['mailbox_id'])
+    except GulagDBNotFoundException as e:
+      raise GulagNotFoundException(whoami(self) + e.message) from e
     except GulagDBException as e:
       logging.warning(whoami(self) + e.message)
       raise GulagException(whoami(self) + e.message) from e
@@ -384,6 +410,8 @@ class Gulag:
     at_db = None
     try:
       at_db = self.db.get_attachment({"id": args['id']})
+    except GulagDBNotFoundException as e:
+      raise GulagNotFoundException(whoami(self) + e.message) from e
     except GulagDBException as e:
       raise GulagException(whoami(self) + e.message) from e
     if 'data' not in args:
@@ -399,12 +427,16 @@ class Gulag:
     qm_db = None
     try:
       qm_db = self.db.get_quarmail({"id": args['quarmail_id']})
+    except GulagDBNotFoundException as e:
+      raise GulagNotFoundException(whoami(self) + e.message) from e
     except GulagDBException as e:
       logging.warning(whoami(self) + e.message)
       raise GulagException(whoami(self) + e.message) from e
     mailbox = None
     try:
       mailbox = self.db.get_mailbox(qm_db['mailbox_id'])
+    except GulagDBNotFoundException as e:
+      raise GulagNotFoundException(whoami(self) + e.message) from e
     except GulagDBException as e:
       logging.warning(whoami(self) + e.message)
       raise GulagException(whoami(self) + e.message) from e
@@ -424,10 +456,20 @@ class Gulag:
       logging.warning(whoami(self) + e.message)
       raise GulagException(whoami(self) + e.message) from e
 
+  def get_quarmail_uri(self,args):
+    try:
+      return self.db.get_quarmail_uri(args['quarmail_id'],args['uri_id'])
+    except GulagDBNotFoundException as e:
+      raise GulagNotFoundException(whoami(self) + e.message) from e
+    except GulagDBException as e:
+      raise GulagException(whoami(self) + e.message) from e
+
   def rspamd_http2imap(self,args):
     mailbox = None
     try:
       mailbox = self.db.get_mailbox(args['mailbox_id'])
+    except GulagDBNotFoundException as e:
+      raise GulagNotFoundException(whoami(self) + e.message) from e
     except GulagDBException as e:
       raise GulagException(whoami(self) + e.message) from e
     # check if the request comes really from rspamd´s metadata_exporter

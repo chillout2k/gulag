@@ -7,7 +7,7 @@ from Gulag import Gulag,GulagException
 from Resources import (ResRoot,ResMailboxes,
   ResQuarMails,ResQuarMail,ResQuarMailAttachments,
   ResQuarMailAttachment,ResAttachments,ResAttachment,
-  ResRSPAMDImporter,ResQuarMailURIs
+  ResRSPAMDImporter,ResQuarMailURIs,ResQuarMailURI
 )
 parser = argparse.ArgumentParser()
 parser.add_argument('--config', required=True, help="Path to config file")
@@ -19,6 +19,8 @@ try:
   except GulagException as e:
     raise Exception(e.message) from e
   app = Flask(__name__)
+  # https://github.com/flask-restful/flask-restful/issues/780#issuecomment-434588559
+  app.config['ERROR_404_HELP'] = False
   api = Api(app, catch_all_404s=True)
   api.add_resource(ResRoot,
     '/api/v1/',
@@ -46,6 +48,10 @@ try:
   )
   api.add_resource(ResQuarMailURIs,
     '/api/v1/quarmails/<int:quarmail_id>/uris',
+    resource_class_kwargs={'gulag_object': gulag}
+  )
+  api.add_resource(ResQuarMailURI,
+    '/api/v1/quarmails/<int:quarmail_id>/uris/<int:uri_id>',
     resource_class_kwargs={'gulag_object': gulag}
   )
   api.add_resource(ResAttachments,

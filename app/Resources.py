@@ -1,7 +1,9 @@
-from flask import request
+from flask import request, Response
 from flask_restful import Resource, abort, reqparse
-from Gulag import GulagException
 import json
+from Gulag import (
+  GulagException,GulagNotFoundException,GulagBadInputException
+)
 
 class GulagResource(Resource):
   gulag = None
@@ -37,7 +39,7 @@ class ResMailboxes(GulagResource):
     try:
       return self.gulag.get_mailboxes()
     except GulagException as e:
-      abort(400, message=e.message)
+      abort(500, message=e.message)
 
 class ResMailbox(GulagResource):
   def get(self,id):
@@ -50,11 +52,13 @@ class ResQuarMails(GulagResource):
       try:
         args['filters'] = json.loads(args['filters'])
       except json.JSONDecodeError as e:
-        abort(400, message=whoami(self) + "JSON parse error: " + e.msg)
+        abort(400, message="Invalid filters: " + e.msg)
     try:
       return self.gulag.get_quarmails(args)
-    except GulagException as e:
+    except GulagBadInputException as e:
       abort(400, message=e.message)
+    except GulagException as e:
+      abort(500, message=e.message)
 
 class ResQuarMail(GulagResource):
   def get(self,quarmail_id):
@@ -63,14 +67,19 @@ class ResQuarMail(GulagResource):
       if(request.args.get('rfc822_message')):
         args['rfc822_message'] = True
       return self.gulag.get_quarmail(args)
+    except GulagNotFoundException as e:
+      abort(404, message=e.message)
     except GulagException as e:
-      abort(400, message=e.message)
+      abort(500, message=e.message)
   def delete(self,quarmail_id):
     args = {"quarmail_id": quarmail_id}
     try:
-      return self.gulag.delete_quarmail(args)
+      self.gulag.delete_quarmail(args)
+      return Response(response=None,status=202,mimetype=None)
+    except GulagNotFoundException as e:
+      abort(404, message=e.message)
     except GulagException as e:
-      abort(400, message=e.message)
+      abort(500, message=e.message)
 
 class ResQuarMailAttachments(GulagResource):
   def get(self,quarmail_id):
@@ -80,7 +89,7 @@ class ResQuarMailAttachments(GulagResource):
     try:
       return self.gulag.get_quarmail_attachments(args)
     except GulagException as e:
-      abort(400, message=e.message)
+      abort(500, message=e.message)
 
 class ResQuarMailAttachment(GulagResource):
   def get(self,quarmail_id,attachment_id):
@@ -92,8 +101,10 @@ class ResQuarMailAttachment(GulagResource):
       args['data'] = True
     try:
       return self.gulag.get_quarmail_attachment(args)
+    except GulagNotFoundException as e:
+      abort(404, message=e.message)
     except GulagException as e:
-      abort(400, message=e.message)
+      abort(500, message=e.message)
 
 class ResQuarMailURIs(GulagResource):
   def get(self,quarmail_id):
@@ -101,11 +112,24 @@ class ResQuarMailURIs(GulagResource):
       "quarmail_id": quarmail_id
     }
     if(request.args.get('from_rfc822_message')):
-        args['from_rfc822_message'] = True
+      args['from_rfc822_message'] = True
     try:
       return self.gulag.get_quarmail_uris(args)
     except GulagException as e:
-      abort(400, message=e.message)
+      abort(500, message=e.message)
+
+class ResQuarMailURI(GulagResource):
+  def get(self,quarmail_id,uri_id):
+    args = {
+      "quarmail_id": quarmail_id,
+      "uri_id": uri_id
+    }
+    try:
+      return self.gulag.get_quarmail_uri(args)
+    except GulagNotFoundException as e:
+      abort(404, message=e.message)
+    except GulagException as e:
+      abort(500, message=e.message)
 
 class ResAttachments(GulagResource):
   def get(self):
@@ -116,8 +140,10 @@ class ResAttachment(GulagResource):
     args = {"id": attachment_id}
     try:
       return self.gulag.get_attachment(args)
+    except GulagNotFoundException as e:
+      abort(404, message=e.message)
     except GulagException as e:
-      abort(400, message=e.message)
+      abort(500, message=e.message)
 
 class ResRSPAMDImporter(GulagResource):
   def post(self,mailbox_id):
@@ -127,8 +153,15 @@ class ResRSPAMDImporter(GulagResource):
         "req_headers": request.headers,
         "rfc822_message": request.get_data(as_text=True)
       })
-      # TODO: Response mit Location-Header?
-      # https://stackoverflow.com/a/22707491
-      return {"resource: ": "HTTP2IMAP for RSPAMD"}
+      return {}
+    #  response = Response(
+    #    response=json.dumps(resp),
+    #    status=201,
+    #    mimetype='application/json',
+    #    headers=Headers([
+    #      ('Location', 'https://invalid.local/api/v1/blablabla/123')
+    #    ])
+    #  )
+    #  return response
     except GulagException as e:
-      abort(400, message=e.message)
+      abort(500, message=e.message)
