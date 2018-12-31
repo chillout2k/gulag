@@ -2,6 +2,7 @@ import imaplib
 import email
 import email.header
 import time
+import re
 from GulagUtils import whoami
 
 class IMAPmailboxException(Exception):
@@ -61,10 +62,13 @@ class IMAPmailbox:
       })
     return results
 
-  def add_message(self,message):
+  def add_message(self,message,unseen=False):
+    flags = ''
+    if(unseen == True):
+      flags = 'UNSEEN'
     rv, data = self.mailbox.append(
       self.imap_mailbox,
-      'UNSEEN',
+      flags ,
       imaplib.Time2Internaldate(time.time()),
       str(message).encode('utf-8')
     )
@@ -72,6 +76,10 @@ class IMAPmailbox:
       raise IMAPmailboxException(whoami(self)+
         "ERROR appending message: " + rv
       )
+    p = re.compile(r'^\[APPENDUID\s+\d+\s+(\d+)\].+$')
+    m = p.search(data[0].decode())
+    imap_uid = m.group(1)
+    return imap_uid
 
   def get_message(self,imap_uid):
     rv, data = self.mailbox.uid('FETCH', str(imap_uid), '(RFC822)')

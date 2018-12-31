@@ -536,7 +536,11 @@ class Gulag:
     imap_mb = None
     try:
       imap_mb = IMAPmailbox(mailbox)
-      imap_mb.add_message(msg)
+      imap_uid = imap_mb.add_message(msg, unseen=True)
+      logging.info(whoami(self) + "IMAP_UID: " + str(imap_uid))
       imap_mb.close()
     except IMAPmailboxException as e:
       raise GulagException(whoami(self) + e.message) from e
+
+  def release_quarmail(self,args):
+    pass

@@ -2,6 +2,16 @@ create database Gulag;
 
 use Gulag;
 
+create table SMTPrelays(
+  id varchar(64) not null primary key,
+  smtp_server varchar(256) default '127.0.0.1' collate 'ascii_general_ci',
+  smtp_port smallint unsigned not null default 25,
+  smtp_security varchar(32) not null default 'plain',
+  smtp_user varchar(256) default null,
+  smtp_pass varchar(1024) default null,
+  comment varchar(256) default null
+)ENGINE = InnoDB;
+
 create table Mailboxes(
   email_address varchar(767) not null primary key collate 'ascii_general_ci',
   name varchar(256) not null,
@@ -9,19 +19,14 @@ create table Mailboxes(
   imap_port smallint unsigned not null default 143,
   imap_security varchar(32) not null default 'plain',
   imap_user varchar(256) not null,
-  imap_pass varchar(256) not null,
+  imap_pass varchar(1024) not null,
   imap_mailbox varchar(256) not null default 'INBOX',
   imap_mailbox_fp varchar(256) not null default 'false-positives',
   imap_separator varchar(4) not null default '/',
-  smtp_server varchar(256) default null,
-  smtp_port smallint unsigned not null default 25,
-  smtp_security varchar(32) not null default 'plain',
-  smtp_user varchar(256) default null,
-  smtp_pass varchar(2048) default null,
   comment varchar(256) default null
 )ENGINE = InnoDB;
-insert into Mailboxes (email_address,name,imap_user,imap_pass) 
-  values('quarantine-sandbox@example.org','E-Mail sandbox quarantine','quarantine-sb','quarantine-sb_secure_password');
+insert into Mailboxes (email_address,name,imap_user,imap_pass)
+  values('quarantine@example.org','E-Mail inbound quarantine','quarantine','quarantine_secure_password');
 
 create table QuarMails (
   id int unsigned auto_increment primary key,
