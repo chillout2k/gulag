@@ -97,7 +97,9 @@ class Gulag:
         uris = {}
         uid = unseen['imap_uid']
         msg = email.message_from_bytes(unseen['msg'])
-        msg_size = len(msg.as_string())
+        source_id = 'amavis'
+        if 'X-Gulag-Source' in msg:
+          source_id = email.header.decode_header(msg['X-Gulag-Source'])[0][0]
         r5321_from = email.header.decode_header(msg['Return-Path'])[0][0]
         if(r5321_from is not '<>'):
           r5321_from = r5321_from.replace("<","")
@@ -144,14 +146,22 @@ class Gulag:
         # Die E-Mail im IMAP-Backend existiert jedoch nur ein Mal und wird
         # über die mailbox_id sowie die imap_uid mehrfach referenziert.
         for r5321_rcpt in r5321_rcpts.split(","):
-          quarmail_id = self.db.add_quarmail({
-            'mx_queue_id': mx_queue_id, 'env_from': r5321_from,
-            'env_rcpt': r5321_rcpt, 'hdr_cf': x_spam_status,
-            'hdr_from': r5322_from, 'hdr_subject': subject,'hdr_msgid': msg_id,
-            'hdr_date': date, 'cf_meta': 'cf_meta',
-            'mailbox_id': 'quarantine@zwackl.de', 'imap_uid': uid,
-            'msg_size': msg_size
-          })
+          try:
+            quarmail_id = self.db.add_quarmail({
+              'mx_queue_id': mx_queue_id, 'env_from': r5321_from,
+              'env_rcpt': r5321_rcpt, 'hdr_cf': x_spam_status,
+              'hdr_from': r5322_from, 'hdr_subject': subject,
+              'hdr_msgid': msg_id, 'hdr_date': date, 'cf_meta': 'cf_meta',
+              'mailbox_id': 'quarantine@zwackl.de', 'imap_uid': uid,
+              'source_id': source_id, 'msg_size': len(msg.as_string()),
+              'ssdeep': ssdeep.hash(msg.as_string())
+            })
+          except GulagDBBadInputException as e:
+            logging.warn(whoami(self) + e.message)
+            raise GulagBadInputException(whoami(self) + e.message) from e
+          except GulagDBException as e:
+            logging.warn(whoami(self) + e.message)
+            raise GulagException(whoami(self) + e.message) from e
           logging.info(whoami(self) + "QuarMail (%s) imported" % (quarmail_id))
           quarmail_ids.append(quarmail_id)
         # Ende for rcpts
@@ -167,24 +177,15 @@ class Gulag:
             else:
               # filename isn´t encoded
               filename = filename[0][0]
-            logging.info(whoami(self) +
-              "SSDEEP: " + ssdeep.hash(part.get_payload(decode=True))
-            )
-            logging.info(whoami(self) +
-              "SHA256 " + hashlib.sha256(
-                part.get_payload(decode=True)
-              ).hexdigest()
-            )
-            attach_magic = None
-            try:
-              attach_magic = magic.from_buffer(part.get_payload(decode=True))
-            except:
-              logging.info(whoami(self) + ": " + str(sys.exc_info()))
+            attach_decoded = part.get_payload(decode=True)
             attach_id = self.db.add_attachment({
               'filename': filename,
               'content_type': part.get_content_type(),
               'content_encoding': part['Content-Transfer-Encoding'],
-              'magic': attach_magic
+              'magic': magic.from_buffer(attach_decoded),
+              'sha256': hashlib.sha256(attach_decoded).hexdigest(),
+              'ssdeep': ssdeep.hash(attach_decoded),
+              'size': len(attach_decoded)
             })
             attachments.append(attach_id)
           # End if part.get_filename()
@@ -464,7 +465,7 @@ class Gulag:
     except GulagDBException as e:
       raise GulagException(whoami(self) + e.message) from e
 
-  def rspamd_http2imap(self,args):
+  def rspamd2mailbox(self,args):
     mailbox = None
     try:
       mailbox = self.db.get_mailbox(args['mailbox_id'])
@@ -479,60 +480,128 @@ class Gulag:
         + "Missing Rspamd-specific request header X-Rspamd-From!"
       )
       logging.error(err)
-      raise GulagException(err)
+      raise GulagBadInputException(err)
     # Prepend Gulag-specific headers to rejected mail
     # before pushing into quarantine mailbox
     msg = None
+    if('X-Rspamd-From' not in args['req_headers']):
+      err = str(whoami(self) +
+        "Missing Rspamd-specific request header X-Rspamd-From!"
+      )
+      logging.error(err)
+      raise GulagBadInputException(err)
+    if('X-Rspamd-Rcpt' not in args['req_headers']):
+      err = str(whoami(self) +
+        "Missing Rspamd-specific request header X-Rspamd-Rcpt!"
+      )
+      logging.error(err)
+      raise GulagBadInputException(err)
+    if('X-Rspamd-Symbols' not in args['req_headers']):
+      err = str(whoami(self) +
+        "Missing Rspamd-specific request header X-Rspamd-Symbols!"
+      )
+      logging.error(err)
+      raise GulagBadInputException(err)
+    if('X-Rspamd-Qid' not in args['req_headers']):
+      err = str(whoami(self) +
+        "Missing Rspamd-specific request header X-Rspamd-Qid!"
+      )
+      logging.error(err)
+      raise GulagBadInputException(err)
+    if('rfc822_message' not in args):
+      err = str(whoami(self) + "Missing rfc822_message!")
+      logging.error(err)
+      raise GulagBadInputException(err)
+    # all mandatory request headers and body are present
+    rcpts_hdr = ""
+    rcpts = None
     try:
-      if('X-Rspamd-From' not in args['req_headers']):
-        err = str(whoami(self)
-          + "Missing Rspamd-specific request header X-Rspamd-From!"
-        )
-        logging.error(err)
-        raise GulagException(err)
-      if('X-Rspamd-Rcpt' not in args['req_headers']):
-        err = str(whoami(self)
-          + "Missing Rspamd-specific request header X-Rspamd-Rcpt!"
-        )
-        logging.error(err)
-        raise GulagException(err)
-      if('X-Rspamd-Symbols' not in args['req_headers']):
-        err = str(whoami(self)
-          + "Missing Rspamd-specific request header X-Rspamd-Symbols!"
-        )
-        logging.error(err)
-        raise GulagException(err)
-      if('X-Rspamd-Qid' not in args['req_headers']):
-        err = str(whoami(self)
-          + "Missing Rspamd-specific request header X-Rspamd-Qid!"
-        )
-        logging.error(err)
-        raise GulagException(err)
-      if('rfc822_message' not in args):
-        err = str(whoami(self)
-          + "Missing rfc822_message!"
-        )
-        logging.error(err)
-        raise GulagException(err)
-      # all mandatory request headers and body are present
-      rcpts_hdr = ""
-      for rcpt in json.loads(str(args['req_headers']['X-Rspamd-Rcpt'])):
-        if(len(rcpts_hdr) > 0):
-          rcpts_hdr += "," + rcpt
-        else:
-          rcpts_hdr = rcpt
-      msg = "Return-Path: <" + args['req_headers']['X-Rspamd-From'] + ">\r\n"
-      msg += "Received: from rspamd_http2imap relay by gulag-mailbox "
-      msg += args['mailbox_id'] + "\r\n"
-      msg += "X-Envelope-To-Blocked: " + rcpts_hdr + "\r\n"
-      msg += "X-Spam-Status: " + args['req_headers']['X-Rspamd-Symbols'] + "\r\n"
-      msg += "X-Spam-QID: " + args['req_headers']['X-Rspamd-Qid'] + "\r\n"
-      # append original mail
-      msg += args['rfc822_message']
-    except GulagException as e:
-      raise GulagException(e.message) from e
-    except:
-      raise GulagException(whoami(self) + str(sys.exc_info()))
+      rcpts = json.loads(str(args['req_headers']['X-Rspamd-Rcpt']))
+    except json.JSONDecodeError as e:
+      raise GulagBadInputException(e.msg) from e
+    for rcpt in rcpts:
+      if(len(rcpts_hdr) > 0):
+        rcpts_hdr += "," + rcpt
+      else:
+        rcpts_hdr = rcpt
+    msg = "Return-Path: <" + args['req_headers']['X-Rspamd-From'] + ">\r\n"
+    msg += "Received: from Rspamd http2imap relay by gulag-mailbox IMAP: "
+    msg += args['mailbox_id'] + "\r\n"
+    msg += "X-Envelope-To-Blocked: " + rcpts_hdr + "\r\n"
+    msg += "X-Spam-Status: " + args['req_headers']['X-Rspamd-Symbols'] + "\r\n"
+    msg += "X-Spam-QID: " + args['req_headers']['X-Rspamd-Qid'] + "\r\n"
+    msg += "X-Gulag-Source: rspamd\r\n"
+    # append original mail
+    msg += args['rfc822_message']
+    imap_mb = None
+    try:
+      imap_mb = IMAPmailbox(mailbox)
+      imap_uid = imap_mb.add_message(msg, unseen=True)
+      logging.info(whoami(self) + "IMAP_UID: " + str(imap_uid))
+      imap_mb.close()
+    except IMAPmailboxException as e:
+      raise GulagException(whoami(self) + e.message) from e
+
+  def mailradar2mailbox(self,args):
+    mailbox = None
+    try:
+      mailbox = self.db.get_mailbox(args['mailbox_id'])
+    except GulagDBNotFoundException as e:
+      raise GulagNotFoundException(whoami(self) + e.message) from e
+    except GulagDBException as e:
+      raise GulagException(whoami(self) + e.message) from e
+    # Prepend Gulag-specific headers to rejected mail
+    # before pushing into quarantine mailbox
+    msg = None
+    if('X-Mailradar-From' not in args['req_headers']):
+      err = str(whoami(self) +
+        "Missing Mailradar-specific request header X-Mailradar-From!"
+      )
+      logging.error(err)
+      raise GulagBadInputException(err)
+    if('X-Mailradar-Rcpt' not in args['req_headers']):
+      err = str(whoami(self) +
+        "Missing Mailradar-specific request header X-Mailradar-Rcpt!"
+      )
+      logging.error(err)
+      raise GulagBadInputException(err)
+    #if('X-Rspamd-Symbols' not in args['req_headers']):
+    #  err = str(whoami(self) +
+    #    "Missing Rspamd-specific request header X-Rspamd-Symbols!"
+    #  )
+    #  logging.error(err)
+    #  raise GulagBadInputException(err)
+    if('X-Mailradar-Qid' not in args['req_headers']):
+      err = str(whoami(self) +
+        "Missing Mailradar-specific request header X-Mailradar-Qid!"
+      )
+      logging.error(err)
+      raise GulagBadInputException(err)
+    if('rfc822_message' not in args):
+      err = str(whoami(self) + "Missing rfc822_message!")
+      logging.error(err)
+      raise GulagBadInputException(err)
+    # all mandatory request headers and body are present
+    rcpts_hdr = ""
+    rcpts = None
+    try:
+      rcpts = json.loads(str(args['req_headers']['X-Mailradar-Rcpt']))
+    except json.JSONDecodeError as e:
+      raise GulagBadInputException(e.msg) from e
+    for rcpt in rcpts:
+      if(len(rcpts_hdr) > 0):
+        rcpts_hdr += "," + rcpt
+      else:
+        rcpts_hdr = rcpt
+    msg = "Return-Path: <" + args['req_headers']['X-Mailradar-From'] + ">\r\n"
+    msg += "Received: from Mailradar http2imap relay by gulag-mailbox IMAP: "
+    msg += args['mailbox_id'] + "\r\n"
+    msg += "X-Envelope-To-Blocked: " + rcpts_hdr + "\r\n"
+#    msg += "X-Spam-Status: " + args['req_headers']['X-Rspamd-Symbols'] + "\r\n"
+    msg += "X-Spam-QID: " + args['req_headers']['X-Mailradar-Qid'] + "\r\n"
+    msg += "X-Gulag-Source: mailradar\r\n"
+    # append original mail
+    msg += args['rfc822_message']
     imap_mb = None
     try:
       imap_mb = IMAPmailbox(mailbox)

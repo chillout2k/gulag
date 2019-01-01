@@ -157,23 +157,34 @@ class ResAttachment(GulagResource):
     except GulagException as e:
       abort(500, message=e.message)
 
-class ResRSPAMDImporter(GulagResource):
+class ResRspamd2Mailbox(GulagResource):
   def post(self,mailbox_id):
     try:
-      self.gulag.rspamd_http2imap({
+      self.gulag.rspamd2mailbox({
         "mailbox_id": mailbox_id,
         "req_headers": request.headers,
         "rfc822_message": request.get_data(as_text=True)
       })
       return {}
-    #  response = Response(
-    #    response=json.dumps(resp),
-    #    status=201,
-    #    mimetype='application/json',
-    #    headers=Headers([
-    #      ('Location', 'https://invalid.local/api/v1/blablabla/123')
-    #    ])
-    #  )
-    #  return response
+    except GulagNotFoundException as e:
+      abort(404, message=e.message)
+    except GulagBadInputException as e:
+      abort(400, message=e.message)
+    except GulagException as e:
+      abort(500, message=e.message)
+
+class ResMailradar2Mailbox(GulagResource):
+  def post(self,mailbox_id):
+    try:
+      self.gulag.mailradar2mailbox({
+        "mailbox_id": mailbox_id,
+        "req_headers": request.headers,
+        "rfc822_message": request.get_data(as_text=True)
+      })
+      return {}
+    except GulagNotFoundException as e:
+      abort(404, message=e.message)
+    except GulagBadInputException as e:
+      abort(400, message=e.message)
     except GulagException as e:
       abort(500, message=e.message)

@@ -45,7 +45,7 @@ class GulagDB:
           autocommit=True
         )
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + str(e)) from e
+      raise GulagDBException(whoami(self) + str(e.msg)) from e
     self.uri_prefixes = uri_prefixes
     # virtual columns cannot not be stated in where-clause
     self.vcols['attach_count'] = {}
@@ -73,7 +73,7 @@ class GulagDB:
             results[value] = True
       return results
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + str(e)) from e
+      raise GulagDBException(whoami(self) + str(e.msg)) from e
 
   def get_limit_clause(self,args):
     if('query_offset' in args and 'query_limit' in args):
@@ -198,7 +198,7 @@ class GulagDB:
           continue
       return results
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + str(e)) from e
+      raise GulagDBException(whoami(self) + str(e.msg)) from e
 
   def get_mailbox(self,mailbox_id):
     try:
@@ -222,7 +222,7 @@ class GulagDB:
       except MailboxException as e:
         raise GulagDBException(whoami(self) + e.message) from e
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + str(e)) from e
+      raise GulagDBException(whoami(self) + str(e.msg)) from e
 
   def add_quarmail(self, quarmail):
     try:
@@ -231,19 +231,20 @@ class GulagDB:
           "(mx_queue_id,env_from,env_rcpt,"+
           "hdr_cf,hdr_from,hdr_subject,"+
           "hdr_msgid,hdr_date,cf_meta,"+
-          "mailbox_id,imap_uid,msg_size) " +
-        "values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+          "mailbox_id,imap_uid,msg_size,ssdeep,source_id) " +
+        "values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (quarmail['mx_queue_id'],quarmail['env_from'],quarmail['env_rcpt'],
          quarmail['hdr_cf'],quarmail['hdr_from'],quarmail['hdr_subject'],
          quarmail['hdr_msgid'],quarmail['hdr_date'],quarmail['cf_meta'],
-         quarmail['mailbox_id'],quarmail['imap_uid'],quarmail['msg_size']
+         quarmail['mailbox_id'],quarmail['imap_uid'],quarmail['msg_size'],
+         quarmail['ssdeep'],quarmail['source_id']
         )
       )
       id = cursor.lastrowid
       cursor.close()
       return id
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + (e)) from e
+      raise GulagDBException(whoami(self) + (e.msg)) from e
 
   def delete_quarmail(self, id):
     try:
@@ -252,7 +253,7 @@ class GulagDB:
       cursor.close()
       return True
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + str(e)) from e
+      raise GulagDBException(whoami(self) + str(e.msg)) from e
 
   def get_quarmails(self,args):
     try:
@@ -290,7 +291,7 @@ class GulagDB:
     except GulagDBException as e:
       raise GulagDBException(whoami(self) + e.message) from e
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + str(e)) from e
+      raise GulagDBException(whoami(self) + str(e.msg)) from e
 
   def get_quarmail(self,args):
     try:
@@ -318,7 +319,7 @@ class GulagDB:
       dict['href'] = self.uri_prefixes['quarmails'] + str(dict['id'])
       return QuarMail(dict).__dict__
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + str(e)) from e
+      raise GulagDBException(whoami(self) + str(e.msg)) from e
 
   def get_deprecated_mails(self,retention_period):
     try:
@@ -338,19 +339,22 @@ class GulagDB:
         results.append(dict)
       return results
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + str(e)) from e
+      raise GulagDBException(whoami(self) + str(e.msg)) from e
 
   def add_attachment(self, attach):
     try:
       cursor = self.conn.cursor()
       cursor.execute("insert into Attachments " +
-        "(filename,content_type,content_encoding,magic) values (%s,%s,%s,%s)",
+        "(filename,content_type,content_encoding,magic,sha256,ssdeep,size) " +
+        "values (%s,%s,%s,%s,%s,%s,%s)",
         (attach['filename'],attach['content_type'],
-         attach['content_encoding'],attach['magic'])
+         attach['content_encoding'],attach['magic'],
+         attach['sha256'],attach['ssdeep'],attach['size']
+        )
       )
       return cursor.lastrowid
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + str(e)) from e
+      raise GulagDBException(whoami(self) + str(e.msg)) from e
 
   def get_attachments(self):
     try:
@@ -374,7 +378,7 @@ class GulagDB:
         results.append(Attachment(dict).__dict__)
       return results
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + str(e)) from e
+      raise GulagDBException(whoami(self) + str(e.msg)) from e
 
   def get_attachment(self, args):
     try:
@@ -398,7 +402,7 @@ class GulagDB:
       dict['href'] = self.uri_prefixes['attachments'] + str(dict['id'])
       return Attachment(dict).__dict__
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + str(e)) from e
+      raise GulagDBException(whoami(self) + str(e.msg)) from e
 
   def get_quarmail_attachments(self,quarmail_id):
     try:
@@ -423,7 +427,9 @@ class GulagDB:
         results.append(Attachment(dict).__dict__)
       return results
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + str(e)) from e
+      raise GulagDBException(whoami(self) + str(e.msg)) from e
+    except AttachmentException as e:
+      raise GulagDBException(whoami(self) + e.message) from e
 
   def get_quarmail_attachment(self,quarmail_id,attachment_id):
     try:
@@ -450,7 +456,9 @@ class GulagDB:
       dict['href'] += "/attachments/" + str(dict['id'])
       return Attachment(dict).__dict__
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + str(e)) from e
+      raise GulagDBException(whoami(self) + str(e.msg)) from e
+    except AttachmentException as e:
+      raise GulagDBException(whoami(self) + e.message) from e
 
   def delete_quarmail_attachments(self, quarmail_id):
     cursor = None
@@ -462,7 +470,7 @@ class GulagDB:
       try:
         cursor.execute("delete from Attachments where id=" + str(qm_at['id']))
       except mariadb.Error as e:
-        raise GulagDBException(whoami(self) + str(e)) from e
+        raise GulagDBException(whoami(self) + str(e.msg)) from e
     cursor.close()
     return True
 
@@ -474,7 +482,7 @@ class GulagDB:
         (quarmail_id, attachment_id)
       )
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + str(e)) from e
+      raise GulagDBException(whoami(self) + str(e.msg)) from e
 
   def add_uri(self,args):
     try:
@@ -485,7 +493,7 @@ class GulagDB:
       )
       return cursor.lastrowid
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + str(e)) from e
+      raise GulagDBException(whoami(self) + str(e.msg)) from e
 
   def quarmail2uri(self,quarmail_id,uri_id):
     try:
@@ -495,7 +503,7 @@ class GulagDB:
         (quarmail_id, uri_id)
       )
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + str(e)) from e
+      raise GulagDBException(whoami(self) + str(e.msg)) from e
 
   def get_quarmail_uris(self,quarmail_id):
     try:
@@ -520,7 +528,9 @@ class GulagDB:
         results.append(URI(dict).__dict__)
       return results
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + str(e)) from e
+      raise GulagDBException(whoami(self) + str(e.msg)) from e
+    except URIException as e:
+      raise GulagDBException(whoami(self) + e.message) from e
 
   def get_quarmail_uri(self,quarmail_id,uri_id):
     try:
@@ -550,7 +560,7 @@ class GulagDB:
       except URIException as e:
         raise GulagDBException(whoami(self) + e.message) from e
     except mariadb.Error as e:
-      raise GulagDBException(whoami(self) + str(e)) from e
+      raise GulagDBException(whoami(self) + str(e.msg)) from e
 
   def delete_quarmail_uris(self, quarmail_id):
     cursor = None
@@ -562,6 +572,6 @@ class GulagDB:
       try:
         cursor.execute("delete from URIs where id=" + str(qm_uri['id']))
       except mariadb.Error as e:
-        raise GulagDBException(whoami(self) + str(e)) from e
+        raise GulagDBException(whoami(self) + str(e.msg)) from e
     cursor.close()
     return True

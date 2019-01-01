@@ -16,11 +16,6 @@ class Mailbox:
   imap_mailbox = None
   imap_mailbox_fp = None
   imap_separator = None
-  smtp_server = None
-  smtp_port = None
-  smtp_security = None
-  smtp_user = None
-  smtp_pass = None
   comment = None
   href = None
 
@@ -38,7 +33,7 @@ class Mailbox:
       if re.match("^(plain|starttls|tls)$", mb_ref['imap_security']) is not None:
         self.imap_security = mb_ref['imap_security']
       else:
-        raise MailboxException('imap_security: {} is invalid! '+ 
+        raise MailboxException('imap_security: {} is invalid! '+
           'Valid values: plain,starttls,tls'.format(mb_ref['imap_security'])
         )
     else:
@@ -60,16 +55,6 @@ class Mailbox:
     if 'imap_separator' not in mb_ref:
       raise MailboxException("'imap_separator' is mandatory!")
     self.imap_seperator = mb_ref['imap_separator']
-    if 'smtp_server' in mb_ref:
-      self.smtp_server = mb_ref['smtp_server']
-    if 'smtp_port' in mb_ref:
-      self.smtp_port = mb_ref['smtp_port']
-    if 'smtp_security' in mb_ref:
-      self.smtp_security = mb_ref['smtp_security']
-    if 'smtp_user' in mb_ref:
-      self.smtp_user = mb_ref['smtp_user']
-    if 'smtp_pass' in mb_ref:
-      self.smtp_pass = mb_ref['smtp_pass']
     if 'comment' in mb_ref:
       self.comment = mb_ref['comment']
     if 'href' in mb_ref:
@@ -98,6 +83,8 @@ class QuarMail:
   href = None
   attach_count = None
   uri_count = None
+  source_id = None
+  ssdeep = None
 
   def __init__(self,qm_ref):
     if 'id' not in qm_ref:
@@ -142,6 +129,12 @@ class QuarMail:
       self.attach_count = qm_ref['attach_count']
     if 'uri_count' in qm_ref:
       self.uri_count = qm_ref['uri_count']
+    if 'source_id' not in qm_ref:
+      raise QuarMailException("'source_id' is mandatory!")
+    self.source_id = qm_ref['source_id']
+    if 'ssdeep' not in qm_ref:
+      raise QuarMailException("'ssdeep' is mandatory!")
+    self.ssdeep = qm_ref['ssdeep']
 
 class AttachmentException(Exception):
   message = None
@@ -157,6 +150,10 @@ class Attachment:
   comment = None
   mailbox_id = None
   imap_uid = None
+  size = None
+  sha256 = None
+  ssdeep = None
+  sandbox_results = None
   href = None
 
   def __init__(self,at_ref):
@@ -182,6 +179,16 @@ class Attachment:
     if 'imap_uid' not in at_ref:
       raise AttachmentException("'imap_uid' is mandatory!")
     self.imap_uid = at_ref['imap_uid']
+    if 'size' not in at_ref:
+      raise AttachmentException("'size' is mandatory!")
+    if 'sha256' not in at_ref:
+      raise AttachmentException("'sha256' is mandatory!")
+    self.sha256 = at_ref['sha256']
+    if 'ssdeep' not in at_ref:
+      raise AttachmentException("'ssdeep' is mandatory!")
+    self.ssdeep = at_ref['ssdeep']
+    if 'sandbox_results' in at_ref:
+      self.sandbox_results = at_ref['sandbox_results']
     if 'href' in at_ref:
       self.href = at_ref['href']
 
@@ -194,6 +201,7 @@ class URI:
   id = None
   uri = None
   fqdn = None
+  sandbox_results = None
   href = None
 
   def __init__(self,uri_ref):
@@ -206,6 +214,7 @@ class URI:
     if 'fqdn' not in uri_ref:
       raise URIException("'fqdn' is mandatory!")
     self.fqdn = uri_ref['fqdn']
+    if 'sandbox_results' in uri_ref:
+      self.sandbox_results = uri_ref['sandbox_results']
     if 'href' in uri_ref:
       self.href = uri_ref['href']
-    

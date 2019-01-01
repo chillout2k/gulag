@@ -7,7 +7,8 @@ from Gulag import Gulag,GulagException
 from Resources import (ResRoot,ResMailboxes,
   ResQuarMails,ResQuarMail,ResQuarMailAttachments,
   ResQuarMailAttachment,ResAttachments,ResAttachment,
-  ResRSPAMDImporter,ResQuarMailURIs,ResQuarMailURI
+  ResRspamd2Mailbox,ResQuarMailURIs,ResQuarMailURI,
+  ResMailradar2Mailbox
 )
 parser = argparse.ArgumentParser()
 parser.add_argument('--config', required=True, help="Path to config file")
@@ -62,8 +63,12 @@ try:
     '/api/v1/attachments/<int:attachment_id>',
     resource_class_kwargs={'gulag_object': gulag}
   )
-  api.add_resource(ResRSPAMDImporter,
-    '/api/v1/mailboxes/<string:mailbox_id>/rspamdimporter',
+  api.add_resource(ResRspamd2Mailbox,
+    '/api/v1/mailboxes/<string:mailbox_id>/rspamd2mailbox',
+    resource_class_kwargs={'gulag_object': gulag}
+  )
+  api.add_resource(ResMailradar2Mailbox,
+    '/api/v1/mailboxes/<string:mailbox_id>/mailradar2mailbox',
     resource_class_kwargs={'gulag_object': gulag}
   )
   if __name__ == '__main__':
