@@ -2,7 +2,8 @@ import mysql.connector as mariadb
 from Entities import(
   Mailbox,MailboxException,QuarMail,
   QuarMailException,Attachment,
-  AttachmentException,URI,URIException
+  AttachmentException,URI,URIException,
+  Mailrelay,MailrelayException
 )
 from GulagUtils import whoami
 
@@ -47,7 +48,7 @@ class GulagDB:
     except mariadb.Error as e:
       raise GulagDBException(whoami(self) + str(e.msg)) from e
     self.uri_prefixes = uri_prefixes
-    # virtual columns cannot not be stated in where-clause
+    # virtual columns
     self.vcols['attach_count'] = {}
     self.vcols['uri_count'] = {}
 
@@ -62,7 +63,7 @@ class GulagDB:
       data = cursor.fetchall()
       if not data:
         raise GulagDBNotFoundException(whoami(self)
-          + "describe " + table_name + " failed: got no fields!"
+          + "describe ''" + table_name + "'' failed: got no fields!"
         )
       desc = cursor.description
       cursor.close()
@@ -81,60 +82,32 @@ class GulagDB:
         int(args['query_offset'])
       except ValueError:
         raise GulagDBBadInputException(whoami(self) +
-          "query_offset must be numeric!"
+          "'query_offset' must be numeric!"
         )
+      try:
+        int(args['query_limit'])
+      except ValueError:
+        raise GulagDBBadInputException(whoami(self) +
+          "'query_limit' must be numeric!"
+        )
+      return "limit "+args['query_offset']+","+args['query_limit']
+    elif('query_offset' in args and 'query_limit' not in args):
+      raise GulagDBBadInputException(whoami(self) +
+        "'query_offset' without 'query_limit' is useless!"
+      )
+    elif('query_limit' in args and 'query_offset' not in args):
       try:
         int(args['query_limit'])
       except ValueError:
         raise GulagDBBadInputException(whoami(self) +
           "query_limit must be numeric!"
         )
-      return "limit "+args['query_offset']+","+args['query_limit']
-    elif('query_offset' in args and 'query_limit' not in args):
-      raise GulagDBBadInputException(whoami(self) +
-        "query_offset without query_limit is useless!"
-      )
-    elif('query_limit' in args and 'query_offset' not in args):
-      try:
-        int(args['query_limit'])
-      except ValueError:
-        raise GulagDBBadInputException(whoami(self) + "query_limit must be numeric!")
       return "limit " + args['query_limit']
     else:
       return ""
 
-  def get_where_clause(self,args):
-    where_clause = ""
-    cnt = 0
-    for arg in args:
-      if(arg == 'query_offset' or arg == 'query_limit'
-         or arg == 'sort_index' or arg == 'sort_order'
-         or arg == 'rfc822_message'):
-        continue
-      if(cnt == 0):
-        if arg in self.vcols:
-          where_clause += "having " + arg + "='" + args[arg] + "' "
-        else:
-          where_clause += "where " + arg + "='" + args[arg] + "' "
-      else:
-        where_clause += "and " + arg + "='" + args[arg] + "' "
-      cnt += 1
-    return where_clause
-
   def get_where_clause_from_filters(self,filters):
     # {"groupOp":"AND","rules":[{"field":"uri_count","op":"eq","data":"3"}]}
-    if 'rules' not in filters:
-      raise GulagDBBadInputException(whoami(self) +
-        "no 'rules' found in filters!"
-      )
-    if 'groupOp' not in filters:
-      raise GulagDBBadInputException(whoami(self) +
-        "'groupOp' not found in filters!"
-      )
-    if filters['groupOp'] != 'AND' and filters['groupOp'] != 'OR':
-      raise GulagDBBadInputException(whoami(self) +
-        "invalid 'groupOp': " + filters['groupOp']
-      )
     where_clause = ""
     for rule in filters['rules']:
       if 'field' not in rule:
@@ -177,6 +150,65 @@ class GulagDB:
         where_clause += " " + filters['groupOp'] + " " + field_op_data
     return where_clause
 
+  def add_mailrelay(self,args):
+    pass
+
+  def delete_mailrelay(self,mailrelay_id):
+    pass
+
+  def get_mailrelays(self):
+    try:
+      cursor = self.conn.cursor()
+      cursor.execute("select * from Mailrelays;")
+      results = []
+      data = cursor.fetchall()
+      if not data:
+        return results
+      desc = cursor.description
+      for tuple in data:
+        dict = {}
+        for (name, value) in zip(desc, tuple):
+          dict[name[0]] = value
+        dict['href'] = self.uri_prefixes['mailrelays'] + dict['id']
+        try:
+          results.append(Mailrelay(dict).__dict__)
+        except MailboxException as e:
+          print("MailrelayException: " + e.message)
+          continue
+      return results
+    except mariadb.Error as e:
+      raise GulagDBException(whoami(self) + str(e.msg)) from e
+
+  def get_mailrelay(self,mailbox_id):
+    try:
+      cursor = self.conn.cursor()
+      cursor.execute(
+        "select * from Mailrelays where id='" + mailrelay_id + "' limit 1;"
+      )
+      data = cursor.fetchall()
+      if not data:
+        raise GulagDBNotFoundException(whoami(self)
+          + "Mailrelay '" + mailrelay_id + "' does not exist!"
+        )
+      desc = cursor.description
+      tuple = data[0]
+      dict = {}
+      for (name, value) in zip(desc, tuple):
+        dict[name[0]] = value
+      dict['href'] = self.uri_prefixes['mailrelays'] + dict['id']
+      try:
+        return Mailrelay(dict).__dict__
+      except MailrelayException as e:
+        raise GulagDBException(whoami(self) + e.message) from e
+    except mariadb.Error as e:
+      raise GulagDBException(whoami(self) + str(e.msg)) from e
+
+  def add_mailbox(self,args):
+    pass
+
+  def delete_mailbox(self,mailbox_id):
+    pass
+
   def get_mailboxes(self):
     try:
       cursor = self.conn.cursor()
@@ -190,7 +222,7 @@ class GulagDB:
         dict = {}
         for (name, value) in zip(desc, tuple):
           dict[name[0]] = value
-        dict['href'] = self.uri_prefixes['mailboxes'] + dict['email_address']
+        dict['href'] = self.uri_prefixes['mailboxes'] + dict['id']
         try:
           results.append(Mailbox(dict).__dict__)
         except MailboxException as e:
@@ -204,7 +236,7 @@ class GulagDB:
     try:
       cursor = self.conn.cursor()
       cursor.execute(
-        "select * from Mailboxes where email_address='" + mailbox_id + "' limit 1;"
+        "select * from Mailboxes where id='" + mailbox_id + "' limit 1;"
       )
       data = cursor.fetchall()
       if not data:
@@ -216,7 +248,7 @@ class GulagDB:
       dict = {}
       for (name, value) in zip(desc, tuple):
         dict[name[0]] = value
-      dict['href'] = self.uri_prefixes['mailboxes'] + dict['email_address']
+      dict['href'] = self.uri_prefixes['mailboxes'] + dict['id']
       try:
         return Mailbox(dict).__dict__
       except MailboxException as e:
@@ -260,8 +292,6 @@ class GulagDB:
       where_clause = ""
       if 'filters' in args:
         where_clause = self.get_where_clause_from_filters(args['filters'])
-      else:
-        where_clause = self.get_where_clause(args)
       cursor = self.conn.cursor()
       query = "select *,(select count(*) from QuarMail2Attachment"
       query += " where QuarMails.id=QuarMail2Attachment.quarmail_id) as attach_count,"

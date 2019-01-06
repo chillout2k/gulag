@@ -57,28 +57,37 @@ class Gulag:
     try:
       self.db = GulagDB(self.config['db'],self.config['uri_prefixes'])
       self.fields['Mailboxes'] = self.db.get_fields('Mailboxes')
+      self.fields['Mailrelays'] = self.db.get_fields('Mailrelays')
       self.fields['QuarMails'] = self.db.get_fields('QuarMails')
       self.fields['Attachments'] = self.db.get_fields('Attachments')
     except GulagDBException as e:
       logging.warning(whoami(self) + e.message)
       raise GulagException(whoami(self) + e.message) from e
-    logging.info('Gulag core initialized by ' + os.path.basename(__file__))
 
-  def check_fields(self,fields_target,args):
+  def check_filters(self,fields_target,filters):
     if fields_target not in self.fields:
-      raise GulagException(
+      raise GulagBadInputException(
         whoami(self) + fields_target + " not found in Gulag.fields!"
       )
-    for arg in args:
-      if(arg == 'query_offset' or arg == 'query_limit'
-         or arg == 'sort_index' or arg == 'sort_order'
-         or arg == 'rfc822_message' or arg == 'filters'
-         or arg in self.db.vcols):
+    if 'rules' not in filters:
+      raise GulagBadInputException(whoami(self) +
+        "no 'rules' found in filters!"
+      )
+    if 'groupOp' not in filters:
+      raise GulagBadInputException(whoami(self) +
+        "'groupOp' not found in filters!"
+      )
+    if filters['groupOp'] != 'AND' and filters['groupOp'] != 'OR':
+      raise GulagBadInputException(whoami(self) +
+        "invalid 'groupOp': " + filters['groupOp']
+      )
+    # {"groupOp":"AND","rules":[{"field":"uri_count","op":"eq","data":"3"}]}
+    for rule in filters['rules']:
+      if(rule['field'] in self.db.vcols):
         continue
-      if arg not in self.fields[fields_target]:
-        raise GulagException(
-          whoami(self) + arg + " is not a valid field of "
-          + fields_target + "!"
+      if rule['field'] not in self.fields[fields_target]:
+        raise GulagBadInputException(whoami(self) +
+          rule['field'] + " is not a valid field of " + fields_target + "!"
         )
 
   # Iterate through all mailboxes, extract metadata
@@ -86,12 +95,14 @@ class Gulag:
   def import_quarmails(self):
     for mailbox in self.db.get_mailboxes():
       imap_mb = None
+      messages = []
       try:
         imap_mb = IMAPmailbox(mailbox)
+        messages = imap_mb.get_unseen_messages()
       except IMAPmailboxException as e:
         logging.warning(whoami(self) + e.message)
         continue
-      for unseen in imap_mb.get_unseen_messages():
+      for unseen in messages:
         quarmail_ids = []
         attachments = []
         uris = {}
@@ -162,7 +173,9 @@ class Gulag:
           except GulagDBException as e:
             logging.warn(whoami(self) + e.message)
             raise GulagException(whoami(self) + e.message) from e
-          logging.info(whoami(self) + "QuarMail (%s) imported" % (quarmail_id))
+          logging.info(whoami(self) +
+            "QuarMail(%s)@Mailbox(%s) imported" % (quarmail_id,mailbox['id'])
+          )
           quarmail_ids.append(quarmail_id)
         # Ende for rcpts
         # Alle MIME-Parts durchiterieren und Attachments
@@ -242,7 +255,8 @@ class Gulag:
   def get_quarmails(self,args):
     qms_db = None
     try:
-      self.check_fields('QuarMails',args)
+      if 'filters' in args:
+        self.check_filters('QuarMails',args['filters'])
       qms_db = self.db.get_quarmails(args)
     except GulagDBBadInputException as e:
       raise GulagBadInputException(whoami(self) + e.message) from e
@@ -319,6 +333,20 @@ class Gulag:
       return qm_db
     except IMAPmailboxException as e:
       logging.warning(whoami(self) + e.message)
+      raise GulagException(whoami(self) + e.message) from e
+
+  def release_quarmail(self,args):
+    try:
+      quarmail = self.get_quarmail({
+        "quarmail_id": args['quarmail_id'],
+        "rfc822_message": True
+      })
+      #
+      # TODO: re-send quarmail to original env_rcpt
+      # TODO: self.delete_quarmail() if arg['purge']
+    except GulagNotFoundException as e:
+      raise GulagNotFoundException(whoami(self) + e.message) from e
+    except GulagException as e:
       raise GulagException(whoami(self) + e.message) from e
 
   def delete_quarmail(self, args):
@@ -610,6 +638,3 @@ class Gulag:
       imap_mb.close()
     except IMAPmailboxException as e:
       raise GulagException(whoami(self) + e.message) from e
-
-  def release_quarmail(self,args):
-    pass

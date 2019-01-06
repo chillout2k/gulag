@@ -11,7 +11,7 @@ class IMAPmailboxException(Exception):
     self.message = str(message)
 
 class IMAPmailbox:
-  email_address = None
+  id = None
   imap_server = None
   imap_user = None
   imap_pass = None
@@ -19,7 +19,7 @@ class IMAPmailbox:
   mailbox = None
 
   def __init__(self, mb_ref):
-    self.email_address = mb_ref['email_address']
+    self.id = mb_ref['id']
     self.imap_server = mb_ref['imap_server']
     self.imap_user = mb_ref['imap_user']
     self.imap_pass = mb_ref['imap_pass']
@@ -54,8 +54,9 @@ class IMAPmailbox:
     for uid in data[0].split():
       rv, data = self.mailbox.uid('FETCH', uid, '(RFC822)')
       if rv != 'OK':
-        print("ERROR getting message", str(uid))
-        continue
+        raise IMAPmailboxException(whoami(self) +
+          str(data) + ", IMAP_UID: " + str(uid)
+        )
       results.append({
         'imap_uid': uid,
         'msg': data[0][1]
@@ -114,14 +115,13 @@ class IMAPmailbox:
         else:
           # not encoded
           part_fn = part_fn[0][0]
-        print("C-T-E: " + str(part['Content-Transfer-Encoding']))
         if(part_fn == filename):
           return part.get_payload(decode=False)
       # End if part.get_filename()
     # End msg.walk() loop
     raise IMAPmailboxException(whoami(self) +
       "Attachment ("+ str(filename) +")@IMAP UID(" + str(imap_uid) + ")@"
-      + str(self.email_address) + " not found!"
+      + str(self.id) + " not found!"
     )
 
   def get_main_parts(self,imap_uid):
@@ -134,5 +134,5 @@ class IMAPmailbox:
     if(len(mparts) > 0):
       return mparts
     raise IMAPmailboxException(whoami(self) +
-      "IMAP_UID(" + str(imap_uid)+")@"+str(self.email_address)+" has no main parts!"
+      "IMAP_UID(" + str(imap_uid)+")@"+str(self.id)+" has no main parts!"
     )

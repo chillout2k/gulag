@@ -1,13 +1,56 @@
 import re
 
+class MailrelayException(Exception):
+  message = None
+  def __init__(self,message):
+    self.message = message
+
+class Mailrelay:
+  id = None
+  smtp_server = None
+  smtp_port = None
+  smtp_security = None
+  smtp_user = None
+  smtp_pass = None
+  comment = None
+  href = None
+
+  def __init__(self,mr_ref):
+    if 'id' not in mr_ref:
+      raise MailrelayException("'id' is mandatory!")
+    self.id = mr_ref['id']
+    if 'smtp_server' not in mr_ref:
+      raise MailrelayException("'smtp_server' is mandatory!")
+    self.smtp_server = mr_ref['smtp_server']
+    if 'smtp_security' in mr_ref:
+      if re.match("^(plain|starttls|tls)$",mr_ref['smtp_security']) is not None:
+        self.smtp_security = mr_ref['smtp_security']
+      else:
+        raise MailrelayException('smtp_security: {} is invalid! '+
+          'Valid values: plain,starttls,tls'.format(mr_ref['smtp_security'])
+        )
+    else:
+      raise MailrelayException("'smtp_security' is a mandatory!")
+    if 'smtp_port' in mr_ref:
+      self.smtp_port = mr_ref['smtp_port']
+    if 'smtp_user' not in mr_ref:
+      raise MailrelayException("'smtp_user' is mandatory!")
+    self.smtp_user = mr_ref['smtp_user']
+    if 'smtp_pass' not in mr_ref:
+      raise MailrelayException("'smtp_pass' is mandatory!")
+    self.smtp_pass = mb_ref['imap_pass']
+    if 'comment' in mr_ref:
+      self.comment = mr_ref['comment']
+    if 'href' in mr_ref:
+      self.href = mr_ref['href']
+
 class MailboxException(Exception):
   message = None
   def __init__(self,message):
     self.message = message
 
 class Mailbox:
-  email_address = None
-  name = None
+  id = None
   imap_server = None
   imap_port = None
   imap_security = None
@@ -16,13 +59,14 @@ class Mailbox:
   imap_mailbox = None
   imap_mailbox_fp = None
   imap_separator = None
+  mailrelay_id = None
   comment = None
   href = None
 
   def __init__(self,mb_ref):
-    if 'email_address' not in mb_ref:
-      raise MailboxException("'email_address' is mandatory!")
-    self.email_address = mb_ref['email_address']
+    if 'id' not in mb_ref:
+      raise MailboxException("'id' is mandatory!")
+    self.id = mb_ref['id']
     if 'name' not in mb_ref:
       raise MailboxException("'name' is mandatory!")
     self.name = mb_ref['name']
@@ -85,6 +129,7 @@ class QuarMail:
   uri_count = None
   source_id = None
   ssdeep = None
+  release_time = None
 
   def __init__(self,qm_ref):
     if 'id' not in qm_ref:
@@ -135,6 +180,8 @@ class QuarMail:
     if 'ssdeep' not in qm_ref:
       raise QuarMailException("'ssdeep' is mandatory!")
     self.ssdeep = qm_ref['ssdeep']
+    if 'release_time' not in qm_ref:
+      raise QuarMailException("'release_time' is mandatory!")
 
 class AttachmentException(Exception):
   message = None

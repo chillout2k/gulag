@@ -3,7 +3,7 @@ create database Gulag;
 use Gulag;
 
 create table Mailrelays(
-  id varchar(64) not null primary key,
+  id varchar(128) not null primary key,
   smtp_server varchar(256) default '127.0.0.1' collate 'ascii_general_ci',
   smtp_port smallint unsigned not null default 25,
   smtp_security varchar(32) not null default 'plain' collate 'ascii_general_ci',
@@ -11,10 +11,11 @@ create table Mailrelays(
   smtp_pass varchar(1024) default null collate 'ascii_general_ci',
   comment varchar(256) default null
 )ENGINE = InnoDB;
+insert into Mailrelays (id) values ('default_local_mailrelay');
 
 create table Mailboxes(
-  email_address varchar(767) not null primary key collate 'ascii_general_ci',
-  name varchar(256) not null,
+  id varchar(128) not null primary key,
+  name varchar(512) not null,
   imap_server varchar(256) not null default '127.0.0.1' collate 'ascii_general_ci',
   imap_port smallint unsigned not null default 143,
   imap_security varchar(32) not null default 'plain' collate 'ascii_general_ci',
@@ -23,10 +24,12 @@ create table Mailboxes(
   imap_mailbox varchar(256) not null default 'INBOX',
   imap_mailbox_fp varchar(256) not null default 'false-positives',
   imap_separator varchar(4) not null default '/',
+  mailrelay_id varchar(128) not null,
+  foreign key (mailrelay_id) references Mailrelays (id) on update cascade on delete restrict,
   comment varchar(256) default null
 )ENGINE = InnoDB;
-insert into Mailboxes (email_address,name,imap_user,imap_pass)
-  values('quarantine@example.org','E-Mail inbound quarantine','quarantine','quarantine_secure_password');
+insert into Mailboxes (id,name,imap_user,imap_pass,mailrelay_id)
+  values('quarantine@example.org','E-Mail inbound quarantine','quarantine','quarantine_secure','default_local_mailrelay');
 
 create table Sources (
   id varchar(32) not null collate 'ascii_general_ci' primary key
@@ -37,9 +40,9 @@ insert into Sources (id) values ('mailradar');
 
 create table QuarMails (
   id int unsigned auto_increment primary key,
-  ctime TIMESTAMP,
+  ctime TIMESTAMP default CURRENT_TIMESTAMP,
   mx_queue_id varchar(64) not null collate 'ascii_general_ci',
-  env_from varchar(256) not null ,
+  env_from varchar(256) not null,
   env_rcpt varchar(256) not null,
   hdr_cf TEXT,
   hdr_from varchar(256) default null,
@@ -47,13 +50,14 @@ create table QuarMails (
   hdr_msgid varchar(512) default null,
   hdr_date varchar(128) default null collate 'ascii_general_ci',
   cf_meta TEXT default null,
-  imap_uid int unsigned not null,
-  mailbox_id varchar(256) not null collate 'ascii_general_ci',
-  foreign key (mailbox_id) references Mailboxes (email_address) on update cascade on delete cascade,
-  source_id varchar(32) not null collate 'ascii_general_ci',
-  foreign key (source_id) references Sources (id) on update cascade on delete cascade,
   msg_size int unsigned not null,
-  ssdeep varchar(592) not null collate 'ascii_general_ci'
+  ssdeep varchar(592) not null collate 'ascii_general_ci',
+  release_time TIMESTAMP default 0,
+  imap_uid int unsigned not null,
+  mailbox_id varchar(128) not null,
+  foreign key (mailbox_id) references Mailboxes (id) on update cascade on delete restrict,
+  source_id varchar(32) not null collate 'ascii_general_ci',
+  foreign key (source_id) references Sources (id) on update cascade on delete restrict
 )ENGINE = InnoDB;
 
 create table Attachments (

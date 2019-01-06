@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import argparse,sys
+import argparse,sys,logging
 from flask import Flask
 from flask_restful import Api
 from Gulag import Gulag,GulagException
@@ -8,7 +8,7 @@ from Resources import (ResRoot,ResMailboxes,
   ResQuarMails,ResQuarMail,ResQuarMailAttachments,
   ResQuarMailAttachment,ResAttachments,ResAttachment,
   ResRspamd2Mailbox,ResQuarMailURIs,ResQuarMailURI,
-  ResMailradar2Mailbox
+  ResMailradar2Mailbox,ResQuarMailRelease
 )
 parser = argparse.ArgumentParser()
 parser.add_argument('--config', required=True, help="Path to config file")
@@ -19,6 +19,7 @@ try:
     gulag = Gulag(args.config)
   except GulagException as e:
     raise Exception(e.message) from e
+  logging.info("Gulag-Server: starting")
   app = Flask(__name__)
   # https://github.com/flask-restful/flask-restful/issues/780#issuecomment-434588559
   app.config['ERROR_404_HELP'] = False
@@ -37,6 +38,10 @@ try:
   )
   api.add_resource(ResQuarMail,
     '/api/v1/quarmails/<int:quarmail_id>',
+    resource_class_kwargs={'gulag_object': gulag}
+  )
+  api.add_resource(ResQuarMailRelease,
+    '/api/v1/quarmails/<int:quarmail_id>/release',
     resource_class_kwargs={'gulag_object': gulag}
   )
   api.add_resource(ResQuarMailAttachments,
@@ -80,4 +85,4 @@ try:
     gulag.db.close()
     sys.exit(0)
 except:
-  print("MAIN-EXCEPTION: " + str(sys.exc_info()))
+  logging.error("Gulag-Server-Exception: " + str(sys.exc_info()))

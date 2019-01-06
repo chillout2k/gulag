@@ -8,12 +8,10 @@ info:
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
-
 host: gulag.example.com
 basePath: "/api/v1"
 schemes:
   - https
-
 paths:
   /quarmails:
     get:
@@ -26,17 +24,17 @@ paths:
       - application/json
       parameters:
       - in: query
-        name: query_offset
-        description: number of records to skip for pagination
-        required: false
-        type: string
-      - in: query
         name: query_limit
         description: number of records to retrieve
         type: integer
         format: int32
         minimum: 0
         required: false
+      - in: query
+        name: query_offset
+        description: number of records to skip for pagination
+        required: false
+        type: string
       - in: query
         name: sort_index
         description: field used to sort results
@@ -48,72 +46,6 @@ paths:
         type: string
         required: false
       - in: query
-        name: id
-        description: unique id of a quarantined email
-        type: integer
-        format: int32
-        minimum: 0
-        required: false
-      - in: query
-        name: ctime
-        description: create timestamp of quarantined email
-        type: string
-        required: false
-      - in: query
-        name: mx_queueid
-        type: string
-        required: false
-      - in: query
-        name: env_from
-        type: string
-        description: RFC5321 envelope sender
-        required: false
-      - in: query
-        name: env_rcpt
-        type: string
-        description: RFC5321 envelope recipient
-        required: false
-      - in: query
-        name: hdr_cf
-        type: string
-        description: content scanner header
-        required: false
-      - in: query
-        name: hdr_from
-        type: string
-        description: RFC5322 From header
-        required: false
-      - in: query
-        name: hdr_subject
-        type: string
-        description: RFC5322 Subject header
-        required: false
-      - in: query
-        name: hdr_msgid
-        type: string
-        description: RFC5322 Message-ID header
-        required: false
-      - in: query
-        name: hdr_date
-        type: string
-        description: RFC5322 Date header
-        required: false
-      - in: query
-        name: cf_meta
-        type: string
-        description: content filter meta data
-        required: false
-      - in: query
-        name: mailbox_id
-        description: IMAP mailbox identifier, e.g. quarantine@example.org
-        type: string
-        required: false
-      - in: query
-        name: imap_uid
-        description: IMAP UID of a quarantined email
-        type: string
-        required: false
-      - in: query
         name: rfc822_message
         type: string
         required: false
@@ -122,7 +54,7 @@ paths:
         name: filters
         type: string
         required: false
-        description: jqgrid-style search filter
+        description: 'jqgrid-style filters, e.g. {"groupOp":"AND","rules":[{"field":"uri_count","op":"eq","data":"3"}]}'
       responses:
         200:
           description: search results matching criteria
@@ -159,6 +91,8 @@ paths:
             $ref: '#/definitions/QuarMail'
         400:
           description: bad input parameter
+        404:
+          description: not found
         500:
           description: server error
     delete:
@@ -201,6 +135,8 @@ paths:
               $ref: '#/definitions/Attachment'
         400:
           description: bad input parameter
+        404:
+          description: not found
         500:
           description: server error
 
@@ -262,6 +198,8 @@ paths:
               $ref: '#/definitions/URI'
         400:
           description: bad input parameter
+        404:
+          description: not found
         500:
           description: server error
 
@@ -310,6 +248,7 @@ definitions:
     - mailbox_id
     - imap_uid
     - msg_size
+    - ssdeep
     - href
     properties:
       id:
@@ -365,6 +304,10 @@ definitions:
       uri_count:
         type: integer
         description: number of uris
+      ssdeep:
+        type: string
+        description: Context triggered piecewise hash (CTPH)
+        example: '6:lWRUFiWwx5QHD2Q2/NNsj90YzrWPpsj7v:lWiEQHD2Q+sj90aKsjr'
       rfc822_message:
         type: string
         description: full RFC822 email message
@@ -378,6 +321,8 @@ definitions:
     - magic
     - mailbox_id
     - imap_uid
+    - ssdeep
+    - sha256
     - href
     properties:
       id:
@@ -409,9 +354,18 @@ definitions:
       imap_uid:
         type: integer
         description: IMAP unique id of the quarantined email
+        example: 12345
       data:
         type: string
         description: raw/encoded (see content_encoding) attachment payload
+      ssdeep:
+        type: string
+        description: Context Triggered Piecewise Hash (CTPH)
+        example: '6:lWRUFiWwx5QHD2Q2/NNsj90YzrWPpsj7v:lWiEQHD2Q+sj90aKsjr'
+      sha256:
+        type: string
+        description: SHA256 digest
+        example: '658cb334f4ab3d747e77fdfceaa1ff3c2477ccc8500c4d8f4552ac0471089b60'
   URI:
     type: object
     required:

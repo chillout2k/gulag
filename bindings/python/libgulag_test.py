@@ -9,7 +9,7 @@ try:
     'filters': {"groupOp":"OR","rules":[
     #  {"field":"uri_count","op":"eq","data":"2"},
     #  {"field":"attach_count","op":"ne","data":"0"}
-      {"field":"uri_count","op":"lt","data":"2"}
+    #  {"field":"uri_count","op":"gt","data":"2"}
     ]},
     #'rfc822_message': 'ja, ich will',
     #'query_limit': 2,

@@ -24,6 +24,7 @@
   },
   "uri_prefixes": {
     "root": "http://127.0.0.1:9090/api/v1/",
+    "mailrelays": "http://127.0.0.1:9090/api/v1/mailrelays/",
     "mailboxes": "http://127.0.0.1:9090/api/v1/mailboxes/",
     "quarmails": "http://127.0.0.1:9090/api/v1/quarmails/",
     "attachments": "http://127.0.0.1:9090/api/v1/attachments/"
