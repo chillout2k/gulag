@@ -51,6 +51,10 @@ paths:
         required: false
         description: get full RFC822 email message for each QuarMail object
       - in: query
+        name: headers
+        description: get all email headers for each QuarMail object
+        required: false
+      - in: query
         name: filters
         type: string
         required: false
@@ -81,8 +85,12 @@ paths:
         type: integer
       - in: query
         name: rfc822_message
-        description: if set to a (random) value, full RFC822 email message will be returned as well
+        description: if set to a (random) value, full RFC822 email message will be returned
         type: string
+        required: false
+      - in: query
+        name: headers
+        description: if set to a (random) value, all email headers will be returned
         required: false
       responses:
         200:
@@ -311,6 +319,9 @@ definitions:
       rfc822_message:
         type: string
         description: full RFC822 email message
+      headers:
+        type: string
+        description: email headers
   Attachment:
     type: object
     required:

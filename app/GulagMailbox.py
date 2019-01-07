@@ -1,6 +1,7 @@
 import imaplib
 import email
 import email.header
+from email.parser import HeaderParser
 import time
 import re
 from GulagUtils import whoami
@@ -102,6 +103,14 @@ class IMAPmailbox:
         "ERROR expunging mailbox"
       )
     return True
+
+  def get_headers(self,imap_uid):
+    rv, data = self.mailbox.uid('FETCH', str(imap_uid), '(BODY[HEADER])')
+    if rv != 'OK':
+      raise IMAPmailboxException(whoami(self) +
+        "ERROR getting headers: %s", str(imap_uid)
+      )
+    return data[0][1]
 
   def get_attachment(self,imap_uid,filename):
     msg = email.message_from_bytes(self.get_message(imap_uid))

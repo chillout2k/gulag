@@ -263,14 +263,16 @@ class Gulag:
     except(GulagException,GulagDBException) as e:
       logging.warning(whoami(self) + e.message)
       raise GulagException(whoami(self) + e.message) from e
-    if 'rfc822_message' not in args:
+    if 'rfc822_message' not in args and 'headers' not in args:
       return {
         'quarmails': qms_db,
-        'rfc822_messages': {}
+        'rfc822_messages': {},
+        'headers': {}
       }
     # recognize all IMAP mailboxes to read from
     # and store rfc822-messages under it
     mailboxes = {}
+    headers = {}
     for qm in qms_db:
       if qm['mailbox_id'] not in mailboxes:
         mailboxes[qm['mailbox_id']] = {}
@@ -290,18 +292,29 @@ class Gulag:
       for qm_db in qms_db:
         if qm_db['imap_uid'] not in mailboxes[mailbox_id]:
           try:
-            mailboxes[mailbox_id][qm_db['imap_uid']] = imap_mb.get_message(
-              qm_db['imap_uid']
-            ).decode("utf-8")
+            if 'rfc822_message' in args:
+              mailboxes[mailbox_id][qm_db['imap_uid']] = imap_mb.get_message(
+                qm_db['imap_uid']
+              ).decode("utf-8")
+            elif 'headers' in args:
+              mailboxes[mailbox_id][qm_db['imap_uid']] = imap_mb.get_headers(
+                qm_db['imap_uid']
+              ).decode("utf-8")
           except IMAPmailboxException as e:
             logging.warning(whoami(self) + e.message)
             raise GulagException(whoami(self) + e.message) from e
       imap_mb.close()
     # end for mailboxes
-    return {
-      "quarmails": qms_db,
-      "rfc822_messages": mailboxes
-    }
+    if 'rfc822_message' in args:
+      return {
+        "quarmails": qms_db,
+        "rfc822_messages": mailboxes
+      }
+    elif 'headers' in args:
+      return {
+        "quarmails": qms_db,
+        "headers": mailboxes
+      }
 
   def get_quarmail(self,args):
     qm_db = None
@@ -312,7 +325,7 @@ class Gulag:
     except GulagDBException as e:
       logging.warning(whoami(self) + e.message)
       raise GulagException(whoami(self) + e.message) from e
-    if 'rfc822_message' not in args:
+    if 'rfc822_message' not in args and 'headers' not in args:
       return qm_db
     # pull full RFC822 message from IMAP mailbox
     mailbox = None
@@ -326,27 +339,18 @@ class Gulag:
     imap_mb = None
     try:
       imap_mb = IMAPmailbox(mailbox)
-      qm_db['rfc822_message'] = imap_mb.get_message(
-        qm_db['imap_uid']
-      ).decode("utf-8")
+      if 'rfc822_message' in args:
+        qm_db['rfc822_message'] = imap_mb.get_message(
+          qm_db['imap_uid']
+        ).decode("utf-8")
+      elif 'headers' in args:
+        qm_db['headers'] = imap_mb.get_headers(
+          qmat_db['imap_uid']
+        )
       imap_mb.close()
       return qm_db
     except IMAPmailboxException as e:
       logging.warning(whoami(self) + e.message)
-      raise GulagException(whoami(self) + e.message) from e
-
-  def release_quarmail(self,args):
-    try:
-      quarmail = self.get_quarmail({
-        "quarmail_id": args['quarmail_id'],
-        "rfc822_message": True
-      })
-      #
-      # TODO: re-send quarmail to original env_rcpt
-      # TODO: self.delete_quarmail() if arg['purge']
-    except GulagNotFoundException as e:
-      raise GulagNotFoundException(whoami(self) + e.message) from e
-    except GulagException as e:
       raise GulagException(whoami(self) + e.message) from e
 
   def delete_quarmail(self, args):
@@ -393,6 +397,44 @@ class Gulag:
       raise GulagException(whoami(self) + e.message) from e
     imap_mb.close()
     return
+
+  def release_quarmail(self,args):
+    try:
+      quarmail = self.get_quarmail({
+        "quarmail_id": args['quarmail_id'],
+        "rfc822_message": True
+      })
+      # TODO: re-send quarmail to original env_rcpt
+      # TODO: self.delete_quarmail() if arg['purge']
+    except GulagNotFoundException as e:
+      raise GulagNotFoundException(whoami(self) + e.message) from e
+    except GulagException as e:
+      raise GulagException(whoami(self) + e.message) from e
+
+  def bounce_quarmail(self,args):
+    try:
+      quarmail = self.get_quarmail({
+        "quarmail_id": args['quarmail_id'],
+        "rfc822_message": True
+      })
+      # TODO: bounce quarmail headers-only to quarmail['env_from']
+      # TODO: self.delete_quarmail() if arg['purge']
+    except GulagNotFoundException as e:
+      raise GulagNotFoundException(whoami(self) + e.message) from e
+    except GulagException as e:
+      raise GulagException(whoami(self) + e.message) from e
+
+  def forward_quarmail(self,args):
+    try:
+      quarmail = self.get_quarmail({
+        "quarmail_id": args['quarmail_id'],
+        "rfc822_message": True
+      })
+      # TODO: send quarmail to args['env_rcpt']
+    except GulagNotFoundException as e:
+      raise GulagNotFoundException(whoami(self) + e.message) from e
+    except GulagException as e:
+      raise GulagException(whoami(self) + e.message) from e
 
   def get_quarmail_attachments(self,args):
     try:

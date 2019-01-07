@@ -17,3 +17,5 @@ RUN env; set -ex ; \
  && /bin/mkdir /config /socket /app
 
 COPY app/*.py /app/
+
+CMD ["/usr/bin/uwsgi","--emperor","/config/vassals"]
