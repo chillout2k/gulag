@@ -14,7 +14,9 @@ RUN env; set -ex ; \
       uwsgi uwsgi-plugin-python3 procps net-tools \
       python3-pip libmagic1 python3-ssdeep \
  && pip3 install python-magic \
- && /bin/mkdir /config /socket /app
+ && /bin/mkdir /config /socket /app \
+ && apt-get clean \
+ && rm -rf /var/lib/apt/lists/*
 
 COPY app/*.py /app/
 

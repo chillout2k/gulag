@@ -103,6 +103,29 @@ paths:
           description: not found
         500:
           description: server error
+    patch:
+      summary: modifies a quarantined email
+      operationId: modify_quarmail
+      produces:
+      - application/json
+      parameters:
+      - in: path
+        name: quarmail_id
+        description: unique id of quarantined email
+        required: true
+        type: integer
+      - in: body
+        name: quarmail
+        description: quarmail fields to modify.
+          schema:
+            $ref: "#/definitions/QuarMail"
+      responses:
+        202:
+          description: quarantined email deleted
+        404:
+          description: not found
+        500:
+          description: server error
     delete:
       summary: deletes a quarantined email
       operationId: delete_quarmail
@@ -121,7 +144,6 @@ paths:
           description: not found
         500:
           description: server error
-
   /quarmails/{quarmail_id}/attachments:
     get:
       summary: retrieves meta data of all attachments of a quarantined email by quarmail_id

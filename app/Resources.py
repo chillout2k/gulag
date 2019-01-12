@@ -4,6 +4,7 @@ import json
 from Gulag import (
   GulagException,GulagNotFoundException,GulagBadInputException
 )
+from GulagUtils import whoami
 
 class GulagResource(Resource):
   gulag = None
@@ -39,7 +40,7 @@ class ResMailboxes(GulagResource):
     try:
       return self.gulag.get_mailboxes()
     except GulagException as e:
-      abort(500, message=e.message)
+      abort(500, message=whoami(self)+e.message)
 
 class ResMailbox(GulagResource):
   def get(self,id):
@@ -56,9 +57,9 @@ class ResQuarMails(GulagResource):
     try:
       return self.gulag.get_quarmails(args)
     except GulagBadInputException as e:
-      abort(400, message=e.message)
+      abort(400, message=whoami(self)+e.message)
     except GulagException as e:
-      abort(500, message=e.message)
+      abort(500, message=whoami(self)+e.message)
 
 class ResQuarMail(GulagResource):
   def get(self,quarmail_id):
@@ -68,20 +69,33 @@ class ResQuarMail(GulagResource):
         args['rfc822_message'] = True
       return self.gulag.get_quarmail(args)
     except GulagNotFoundException as e:
-      abort(404, message=e.message)
+      abort(404, message=whoami(self)+e.message)
     except GulagException as e:
-      abort(500, message=e.message)
-    def delete(self,quarmail_id):
-      pass
+      abort(500, message=whoami(self)+e.message)
+  def patch(self,quarmail_id):
+    try:
+      args = json.loads(request.get_data(as_text=True))
+      args['id'] = quarmail_id
+    except json.JSONDecodeError as e:
+      abort(400, message=whoami(self) + "Invalid JSON: " + e.msg)
+    try:
+      self.gulag.modify_quarmail(args)
+      return Response(response=None,status=204,mimetype=None)
+    except GulagBadInputException as e:
+      abort(400, message=whoami(self)+e.message)
+    except GulagNotFoundException as e:
+      abort(404, message=whoami(self)+e.message)
+    except GulagException as e:
+      abort(500, message=whoami(self)+e.message)
   def delete(self,quarmail_id):
     args = {"quarmail_id": quarmail_id}
     try:
       self.gulag.delete_quarmail(args)
       return Response(response=None,status=202,mimetype=None)
     except GulagNotFoundException as e:
-      abort(404, message=e.message)
+      abort(404, message=whoami(self)+e.message)
     except GulagException as e:
-      abort(500, message=e.message)
+      abort(500, message=whoami(self)+e.message)
 
 class ResQuarMailRelease(GulagResource):
   def get(self,quarmail_id):
@@ -91,9 +105,9 @@ class ResQuarMailRelease(GulagResource):
     try:
       return self.gulag.release_quarmail(args)
     except GulagNotFoundException as e:
-      abort(404, message=e.message)
+      abort(404, message=whoami(self)+e.message)
     except GulagException as e:
-      abort(500, message=e.message)
+      abort(500, message=whoami(self)+e.message)
 
 class ResQuarMailBounce(GulagResource):
   def get(self,quarmail_id):
@@ -103,9 +117,9 @@ class ResQuarMailBounce(GulagResource):
     try:
       return self.gulag.bounce_quarmail(args)
     except GulagNotFoundException as e:
-      abort(404, message=e.message)
+      abort(404, message=whoami(self)+e.message)
     except GulagException as e:
-      abort(500, message=e.message)
+      abort(500, message=whoami(self)+e.message)
 
 class ResQuarMailAttachments(GulagResource):
   def get(self,quarmail_id):
@@ -115,7 +129,7 @@ class ResQuarMailAttachments(GulagResource):
     try:
       return self.gulag.get_quarmail_attachments(args)
     except GulagException as e:
-      abort(500, message=e.message)
+      abort(500, message=whoami(self)+e.message)
 
 class ResQuarMailAttachment(GulagResource):
   def get(self,quarmail_id,attachment_id):
@@ -128,9 +142,9 @@ class ResQuarMailAttachment(GulagResource):
     try:
       return self.gulag.get_quarmail_attachment(args)
     except GulagNotFoundException as e:
-      abort(404, message=e.message)
+      abort(404, message=whoami(self)+e.message)
     except GulagException as e:
-      abort(500, message=e.message)
+      abort(500, message=whoami(self)+e.message)
 
 class ResQuarMailURIs(GulagResource):
   def get(self,quarmail_id):
@@ -142,7 +156,7 @@ class ResQuarMailURIs(GulagResource):
     try:
       return self.gulag.get_quarmail_uris(args)
     except GulagException as e:
-      abort(500, message=e.message)
+      abort(500, message=whoami(self)+e.message)
 
 class ResQuarMailURI(GulagResource):
   def get(self,quarmail_id,uri_id):
@@ -153,9 +167,9 @@ class ResQuarMailURI(GulagResource):
     try:
       return self.gulag.get_quarmail_uri(args)
     except GulagNotFoundException as e:
-      abort(404, message=e.message)
+      abort(404, message=whoami(self)+e.message)
     except GulagException as e:
-      abort(500, message=e.message)
+      abort(500, message=whoami(self)+e.message)
 
 class ResAttachments(GulagResource):
   def get(self):
@@ -167,9 +181,9 @@ class ResAttachment(GulagResource):
     try:
       return self.gulag.get_attachment(args)
     except GulagNotFoundException as e:
-      abort(404, message=e.message)
+      abort(404, message=whoami(self)+e.message)
     except GulagException as e:
-      abort(500, message=e.message)
+      abort(500, message=whoami(self)+e.message)
 
 class ResRspamd2Mailbox(GulagResource):
   def post(self,mailbox_id):
@@ -181,11 +195,11 @@ class ResRspamd2Mailbox(GulagResource):
       })
       return {}
     except GulagNotFoundException as e:
-      abort(404, message=e.message)
+      abort(404, message=whoami(self)+e.message)
     except GulagBadInputException as e:
-      abort(400, message=e.message)
+      abort(400, message=whoami(self)+e.message)
     except GulagException as e:
-      abort(500, message=e.message)
+      abort(500, message=whoami(self)+e.message)
 
 class ResMailradar2Mailbox(GulagResource):
   def post(self,mailbox_id):
@@ -197,8 +211,8 @@ class ResMailradar2Mailbox(GulagResource):
       })
       return {}
     except GulagNotFoundException as e:
-      abort(404, message=e.message)
+      abort(404, message=whoami(self)+e.message)
     except GulagBadInputException as e:
-      abort(400, message=e.message)
+      abort(400, message=whoami(self)+e.message)
     except GulagException as e:
-      abort(500, message=e.message)
+      abort(500, message=whoami(self)+e.message)

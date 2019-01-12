@@ -278,10 +278,37 @@ class GulagDB:
     except mariadb.Error as e:
       raise GulagDBException(whoami(self) + (e.msg)) from e
 
+  def modify_quarmail(self, quarmail):
+    try:
+      cursor = self.conn.cursor()
+      mod_fields = ""
+      if 'id' not in quarmail:
+        raise GulagDBBadInputException("Missing QuarMail-ID!")
+      if len(quarmail) < 2:
+        raise GulagDBBadInputException("No fields specified to modify!")
+      for field in quarmail:
+        if field == 'id':
+          continue
+        mod_fields += " " + field + "='" + quarmail[field] + "',"
+      mod_fields = str(mod_fields).rstrip(',')
+      cursor.execute(
+        "update QuarMails set "+mod_fields+" where id="+str(quarmail['id'])
+      )
+      if(cursor.rowcount == 0):
+        raise GulagDBNotFoundException(whoami(self) + "No QuarMails modified!")
+      cursor.close()
+      return True
+    except GulagDBBadInputException as e:
+      raise GulagDBBadInputException(whoami(self) + e.message) from e
+    except mariadb.Error as e:
+      raise GulagDBException(whoami(self) + str(e.msg)) from e
+
   def delete_quarmail(self, id):
     try:
       cursor = self.conn.cursor()
       cursor.execute("delete from QuarMails where id=" + str(id))
+      if(cursor.rowcount == 0):
+        raise GulagDBNotFoundException(whoami(self) + "No QuarMails deleted!")
       cursor.close()
       return True
     except mariadb.Error as e:

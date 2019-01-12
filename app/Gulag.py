@@ -353,6 +353,24 @@ class Gulag:
       logging.warning(whoami(self) + e.message)
       raise GulagException(whoami(self) + e.message) from e
 
+  def modify_quarmail(self, quarmail):
+    try:
+      if 'id' not in quarmail:
+        raise GulagBadInputException(whoami(self) + "'id' is mandatory!")
+      for field in quarmail:
+        if field not in self.fields['QuarMails']:
+          raise GulagBadInputException(whoami(self) +
+            "Unknown QuarMail field: " + field
+          )
+      self.db.modify_quarmail(quarmail)
+    except GulagDBBadInputException as e:
+      raise GulagBadInputException(whoami(self) + e.message) from e
+    except GulagDBNotFoundException as e:
+      raise GulagNotFoundException(whoami(self) + e.message) from e
+    except GulagDBException as e:
+      logging.warning(whoami(self) + e.message)
+      raise GulagException(whoami(self) + e.message) from e
+
   def delete_quarmail(self, args):
     qm_db = None
     try:
