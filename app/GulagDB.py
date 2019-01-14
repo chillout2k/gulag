@@ -179,7 +179,7 @@ class GulagDB:
     except mariadb.Error as e:
       raise GulagDBException(whoami(self) + str(e.msg)) from e
 
-  def get_mailrelay(self,mailbox_id):
+  def get_mailrelay(self,mailrelay_id):
     try:
       cursor = self.conn.cursor()
       cursor.execute(

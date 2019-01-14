@@ -4,6 +4,7 @@ from GulagDB import (
   GulagDB,GulagDBException,GulagDBNotFoundException,GulagDBBadInputException
 )
 from GulagMailbox import IMAPmailbox,IMAPmailboxException
+from GulagMailrelay import GulagMailrelay,GulagMailrelayException
 from GulagUtils import whoami,extract_uris,extract_fqdn
 import ssdeep, hashlib
 
@@ -305,16 +306,10 @@ class Gulag:
             raise GulagException(whoami(self) + e.message) from e
       imap_mb.close()
     # end for mailboxes
-    if 'rfc822_message' in args:
-      return {
-        "quarmails": qms_db,
-        "rfc822_messages": mailboxes
-      }
-    elif 'headers' in args:
-      return {
-        "quarmails": qms_db,
-        "headers": mailboxes
-      }
+    return {
+      "quarmails": qms_db,
+      "rfc822_messages": mailboxes
+    }
 
   def get_quarmail(self,args):
     qm_db = None
@@ -344,8 +339,8 @@ class Gulag:
           qm_db['imap_uid']
         ).decode("utf-8")
       elif 'headers' in args:
-        qm_db['headers'] = imap_mb.get_headers(
-          qmat_db['imap_uid']
+        qm_db['rfc822_message'] = imap_mb.get_headers(
+          qm_db['imap_uid']
         )
       imap_mb.close()
       return qm_db
@@ -431,15 +426,27 @@ class Gulag:
 
   def bounce_quarmail(self,args):
     try:
+      # get quarmail object with headers from mailbox
       quarmail = self.get_quarmail({
         "quarmail_id": args['quarmail_id'],
-        "rfc822_message": True
+        "headers": True
       })
-      # TODO: bounce quarmail headers-only to quarmail['env_from']
-      # TODO: self.delete_quarmail() if arg['purge']
+      # the mailbox reference holds the appropriate mailrelay_id
+      mailbox_ref = self.db.get_mailbox(quarmail['mailbox_id'])
+      logging.info(whoami(self)+"mailrelay_id: "+str(mailbox_ref['mailrelay_id']))
+      mailrelay_ref = self.db.get_mailrelay(mailbox_ref['mailrelay_id'])
+      logging.info(whoami(self) + str(mailrelay_ref))
+      mailrelay = GulagMailrelay(mailrelay_ref)
+      mailrelay.bounce_quarmail(quarmail)
+      if 'purge' in args:
+        self.delete_quarmail({"quarmail_id": args['quarmail_id']})
     except GulagNotFoundException as e:
       raise GulagNotFoundException(whoami(self) + e.message) from e
     except GulagException as e:
+      raise GulagException(whoami(self) + e.message) from e
+    except GulagDBNotFoundException as e:
+      raise GulagNotFoundException(whoami(self) + e.message) from e
+    except GulagMailrelayException as e:
       raise GulagException(whoami(self) + e.message) from e
 
   def forward_quarmail(self,args):

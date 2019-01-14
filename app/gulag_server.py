@@ -8,7 +8,7 @@ from Resources import (ResRoot,ResMailboxes,
   ResQuarMails,ResQuarMail,ResQuarMailAttachments,
   ResQuarMailAttachment,ResAttachments,ResAttachment,
   ResRspamd2Mailbox,ResQuarMailURIs,ResQuarMailURI,
-  ResMailradar2Mailbox,ResQuarMailRelease
+  ResMailradar2Mailbox,ResQuarMailRelease,ResQuarMailBounce
 )
 parser = argparse.ArgumentParser()
 parser.add_argument('--config', required=True, help="Path to config file")
@@ -42,6 +42,10 @@ try:
   )
   api.add_resource(ResQuarMailRelease,
     '/api/v1/quarmails/<int:quarmail_id>/release',
+    resource_class_kwargs={'gulag_object': gulag}
+  )
+  api.add_resource(ResQuarMailBounce,
+    '/api/v1/quarmails/<int:quarmail_id>/bounce',
     resource_class_kwargs={'gulag_object': gulag}
   )
   api.add_resource(ResQuarMailAttachments,

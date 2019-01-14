@@ -38,7 +38,7 @@ class Mailrelay:
     self.smtp_user = mr_ref['smtp_user']
     if 'smtp_pass' not in mr_ref:
       raise MailrelayException("'smtp_pass' is mandatory!")
-    self.smtp_pass = mb_ref['imap_pass']
+    self.smtp_pass = mr_ref['smtp_pass']
     if 'comment' in mr_ref:
       self.comment = mr_ref['comment']
     if 'href' in mr_ref:
@@ -99,6 +99,9 @@ class Mailbox:
     if 'imap_separator' not in mb_ref:
       raise MailboxException("'imap_separator' is mandatory!")
     self.imap_seperator = mb_ref['imap_separator']
+    if 'mailrelay_id' not in mb_ref:
+      raise MailboxException("'mailrelay_id' is mandatory!")
+    self.mailrelay_id = mb_ref['mailrelay_id']
     if 'comment' in mb_ref:
       self.comment = mb_ref['comment']
     if 'href' in mb_ref:
