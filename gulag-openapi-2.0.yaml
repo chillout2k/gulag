@@ -259,6 +259,27 @@ paths:
           description: not found
         500:
           description: server error
+  /quarmails/{quarmail_id}/bounce:
+    get:
+      summary: bounces a quarantined email by quarmail_id
+      operationId: bounce_quarmail
+      produces:
+      - application/json
+      parameters:
+      - in: path
+        name: quarmail_id
+        description: unique id of quarantined email
+        required: true
+        type: string
+      responses:
+        200:
+          description: null
+        400:
+          description: bad input parameter
+        404:
+          description: not found
+        500:
+          description: server error
 
 definitions:
   QuarMail:
