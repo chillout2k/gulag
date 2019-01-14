@@ -260,7 +260,7 @@ paths:
         500:
           description: server error
   /quarmails/{quarmail_id}/bounce:
-    get:
+    post:
       summary: bounces a quarantined email by quarmail_id
       operationId: bounce_quarmail
       produces:

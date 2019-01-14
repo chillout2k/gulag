@@ -110,7 +110,7 @@ class ResQuarMailRelease(GulagResource):
       abort(500, message=whoami(self)+e.message)
 
 class ResQuarMailBounce(GulagResource):
-  def get(self,quarmail_id):
+  def post(self,quarmail_id):
     args = {"quarmail_id": quarmail_id}
     if(request.args.get('purge')):
       args['purge'] = True

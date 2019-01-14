@@ -4,7 +4,7 @@ Gulag quarantine
 
 ## get all QuarMail metadata
 
-``` 
+```
 curl -v -s http://127.0.0.1:9090/api/v1/quarmails | jq
 ```
 
@@ -18,6 +18,11 @@ curl -v -s http://127.0.0.1:9090/api/v1/quarmails?rfc822_message=1 | jq
  curl -v -s -G --data-urlencode 'filters={"groupOp":"OR","rules":[{"field":"hdr_subject","op":"eq","data":"996 test from quar mit sync xyz"}]}' http://127.0.0.1:9090/api/v1/quarmails | jq
 ```
 
+## update a QuarMail´s metadata (e.g. sandbox_results) by ID
+```
+ curl -v -s -X PATCH -d '{"sandbox_results":"12345abc"}' http://127.0.0.1:9090/api/v1/quarmails/311|jq
+```
+
 ## delete a QuarMail by ID
 ```
  curl -v -s -X DELETE http://127.0.0.1:9090/api/v1/quarmails/141 | jq
@@ -29,8 +34,18 @@ curl -v -s http://127.0.0.1:9090/api/v1/quarmails?rfc822_message=1 | jq
 ```
 
 ## get a QuarMail´s metadata by ID + RFC822 message
-``` 
+```
  curl -v -s http://127.0.0.1:9090/api/v1/quarmails/136?rfc822_message=1 | jq
+```
+
+## get a QuarMail´s metadata by ID + RFC822 message headers
+```
+ curl -v -s http://127.0.0.1:9090/api/v1/quarmails/136?headers=1 | jq
+```
+
+## Bounce QuarMail by ID
+```
+ curl -v -s -X POST http://127.0.0.1:9090/api/v1/quarmails/136/bounce | jq
 ```
 
 ## get all URIs of a QuarMail
