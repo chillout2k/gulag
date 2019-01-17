@@ -29,6 +29,9 @@
     "quarmails": "http://127.0.0.1:9090/api/v1/quarmails/",
     "attachments": "http://127.0.0.1:9090/api/v1/attachments/"
   },
+  "dos_protection": {
+    "max_body_bytes": 8388608
+  },
   "db":{
     "unix_socket": "/mysqld/mysqld.sock",
     "user": "root",

@@ -197,6 +197,7 @@ class Attachment:
   content_type = None
   content_encoding = None
   magic = None
+  mime_type = None
   comment = None
   mailbox_id = None
   imap_uid = None
@@ -221,6 +222,9 @@ class Attachment:
     if 'magic' not in at_ref:
       raise AttachmentException("'magic' is mandatory!")
     self.magic = at_ref['magic']
+    if 'mime_type' not in at_ref:
+      raise AttachmentException("'mime_type' is mandatory!")
+    self.mime_type = at_ref['mime_type']
     if 'comment' in at_ref:
       self.comment = at_ref['comment']
     if 'mailbox_id' not in at_ref:

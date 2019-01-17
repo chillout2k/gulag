@@ -42,12 +42,12 @@ class GulagMailrelay:
         self.mailrelay.sendmail(
           quarmail['env_from'],
           quarmail['env_rcpt'],
-          quarmail['rfc822_message']
+          str(quarmail['rfc822_message'])
         )
         self.mailrelay.quit()
     except (SMTPRecipientsRefused,SMTPHeloError,SMTPSenderRefused,
             SMTPDataError,SMTPNotSupportedError) as e:
-      raise GulagMailrelayException(whoami(self) + e.message) from e
+      raise GulagMailrelayException(whoami(self) + str(e)) from e
     except TimeoutError as e:
       raise GulagMailrelayException(whoami(self) + e.message) from e
     except ConnectionRefusedError as e:

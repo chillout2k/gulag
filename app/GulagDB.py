@@ -402,11 +402,13 @@ class GulagDB:
     try:
       cursor = self.conn.cursor()
       cursor.execute("insert into Attachments " +
-        "(filename,content_type,content_encoding,magic,sha256,ssdeep,size) " +
-        "values (%s,%s,%s,%s,%s,%s,%s)",
+        "(filename,content_type,content_encoding,magic,sha256,"+
+        "ssdeep,size,mime_type) " +
+        "values (%s,%s,%s,%s,%s,%s,%s,%s)",
         (attach['filename'],attach['content_type'],
          attach['content_encoding'],attach['magic'],
-         attach['sha256'],attach['ssdeep'],attach['size']
+         attach['sha256'],attach['ssdeep'],attach['size'],
+         attach['mime_type']
         )
       )
       return cursor.lastrowid

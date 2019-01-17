@@ -31,6 +31,13 @@ class GulagResource(Resource):
     if api_key not in self.gulag.config['api_keys']:
       abort(401, message="NOT AUTHORIZED!")
 
+  def check_dos(self):
+    body_len = len(request.get_data(as_text=True))
+    if(body_len > self.gulag.config['dos_protection']['max_body_bytes']):
+      raise GulagBadInputException(whoami(self) +
+        "Request body max size exceeded"
+      )
+
 class ResRoot(GulagResource):
   def get(self):
     return {"resource": "Root :)"}
@@ -98,7 +105,7 @@ class ResQuarMail(GulagResource):
       abort(500, message=whoami(self)+e.message)
 
 class ResQuarMailRelease(GulagResource):
-  def get(self,quarmail_id):
+  def post(self,quarmail_id):
     args = {"quarmail_id": quarmail_id}
     if(request.args.get('purge')):
       args['purge'] = True

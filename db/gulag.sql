@@ -66,6 +66,7 @@ create table Attachments (
   content_type varchar(256) not null collate 'ascii_general_ci',
   content_encoding varchar(64) collate 'ascii_general_ci',
   magic varchar(128),
+  mime_type varchar(128),
   comment varchar(256),
   size int unsigned not null,
   sandbox_results varchar(1024) default null collate 'ascii_general_ci',

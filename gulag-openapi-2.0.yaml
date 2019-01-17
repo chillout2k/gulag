@@ -52,6 +52,7 @@ paths:
         description: get full RFC822 email message for each QuarMail object
       - in: query
         name: headers
+        type: string
         description: get all email headers for each QuarMail object
         required: false
       - in: query
@@ -90,6 +91,7 @@ paths:
         required: false
       - in: query
         name: headers
+        type: string
         description: if set to a (random) value, all email headers will be returned
         required: false
       responses:
@@ -117,8 +119,8 @@ paths:
       - in: body
         name: quarmail
         description: quarmail fields to modify.
-          schema:
-            $ref: "#/definitions/QuarMail"
+        schema:
+          $ref: "#/definitions/QuarMail"
       responses:
         202:
           description: quarantined email deleted
@@ -259,6 +261,7 @@ paths:
           description: not found
         500:
           description: server error
+
   /quarmails/{quarmail_id}/bounce:
     post:
       summary: bounces a quarantined email by quarmail_id
@@ -273,7 +276,29 @@ paths:
         type: string
       responses:
         200:
-          description: null
+          description: nothing
+        400:
+          description: bad input parameter
+        404:
+          description: not found
+        500:
+          description: server error
+
+  /quarmails/{quarmail_id}/release:
+    post:
+      summary: releases a quarantined email by quarmail_id
+      operationId: release_quarmail
+      produces:
+      - application/json
+      parameters:
+      - in: path
+        name: quarmail_id
+        description: unique id of quarantined email
+        required: true
+        type: string
+      responses:
+        200:
+          description: nothing
         400:
           description: bad input parameter
         404:
@@ -373,6 +398,7 @@ definitions:
     - content_encoding
     - content_type
     - magic
+    - mime_type
     - mailbox_id
     - imap_uid
     - ssdeep
@@ -397,6 +423,9 @@ definitions:
       magic:
         type: string
         example: "PDF document, version 1.2"
+      mime_type:
+        type: string
+        example: "application/pdf"
       href:
         type: string
         description: hypermedia

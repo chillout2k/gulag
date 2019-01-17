@@ -197,6 +197,7 @@ class Gulag:
               'content_type': part.get_content_type(),
               'content_encoding': part['Content-Transfer-Encoding'],
               'magic': magic.from_buffer(attach_decoded),
+              'mime_type': magic.from_buffer(attach_decoded, mime=True),
               'sha256': hashlib.sha256(attach_decoded).hexdigest(),
               'ssdeep': ssdeep.hash(attach_decoded),
               'size': len(attach_decoded)
@@ -417,11 +418,26 @@ class Gulag:
         "quarmail_id": args['quarmail_id'],
         "rfc822_message": True
       })
-      # TODO: re-send quarmail to original env_rcpt
-      # TODO: self.delete_quarmail() if arg['purge']
+      # the mailbox reference holds the appropriate mailrelay_id
+      mailbox_ref = self.db.get_mailbox(quarmail['mailbox_id'])
+      mailrelay_ref = self.db.get_mailrelay(mailbox_ref['mailrelay_id'])
+      mailrelay = GulagMailrelay(mailrelay_ref)
+      mailrelay.release_quarmail(quarmail)
+      logging.info(whoami(self) +
+        "QuarMail("+quarmail['id']+") released. env_rcpt: "+quarmail['env_rcpt']
+      )
+      if 'purge' in args:
+        self.delete_quarmail({"quarmail_id": args['quarmail_id']})
+        logging.info(whoami(self) +
+          "QuarMail(" + quarmail['id'] + ") deleted"
+        )
     except GulagNotFoundException as e:
       raise GulagNotFoundException(whoami(self) + e.message) from e
     except GulagException as e:
+      raise GulagException(whoami(self) + e.message) from e
+    except GulagDBNotFoundException as e:
+      raise GulagNotFoundException(whoami(self) + e.message) from e
+    except GulagMailrelayException as e:
       raise GulagException(whoami(self) + e.message) from e
 
   def bounce_quarmail(self,args):
@@ -433,13 +449,17 @@ class Gulag:
       })
       # the mailbox reference holds the appropriate mailrelay_id
       mailbox_ref = self.db.get_mailbox(quarmail['mailbox_id'])
-      logging.info(whoami(self)+"mailrelay_id: "+str(mailbox_ref['mailrelay_id']))
       mailrelay_ref = self.db.get_mailrelay(mailbox_ref['mailrelay_id'])
-      logging.info(whoami(self) + str(mailrelay_ref))
       mailrelay = GulagMailrelay(mailrelay_ref)
       mailrelay.bounce_quarmail(quarmail)
+      logging.info(whoami(self) +
+        "QuarMail("+quarmail['id']+") bounced back to "+quarmail['env_from']
+      )
       if 'purge' in args:
         self.delete_quarmail({"quarmail_id": args['quarmail_id']})
+        logging.info(whoami(self) +
+          "QuarMail(" + quarmail['id'] + ") deleted"
+        )
     except GulagNotFoundException as e:
       raise GulagNotFoundException(whoami(self) + e.message) from e
     except GulagException as e:
