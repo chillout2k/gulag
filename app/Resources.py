@@ -12,6 +12,7 @@ class GulagResource(Resource):
     self.gulag = gulag_object
 #XXX    self.check_trusted_proxy()
 #XXX    self.check_auth()
+    self.check_max_body_size()
 
   def check_trusted_proxy(self):
     remote_ip = request.remote_addr
@@ -31,11 +32,12 @@ class GulagResource(Resource):
     if api_key not in self.gulag.config['api_keys']:
       abort(401, message="NOT AUTHORIZED!")
 
-  def check_dos(self):
+  def check_max_body_size(self):
     body_len = len(request.get_data(as_text=True))
     if(body_len > self.gulag.config['dos_protection']['max_body_bytes']):
       raise GulagBadInputException(whoami(self) +
-        "Request body max size exceeded"
+        "Request exceedes maximum body size (" +
+        self.gulag.config['dos_protection']['max_body_bytes'] + " bytes)!"
       )
 
 class ResRoot(GulagResource):
@@ -187,6 +189,46 @@ class ResAttachment(GulagResource):
     args = {"id": attachment_id}
     try:
       return self.gulag.get_attachment(args)
+    except GulagNotFoundException as e:
+      abort(404, message=whoami(self)+e.message)
+    except GulagException as e:
+      abort(500, message=whoami(self)+e.message)
+  def patch(self,attachment_id):
+    try:
+      args = json.loads(request.get_data(as_text=True))
+      args['id'] = attachment_id
+    except json.JSONDecodeError as e:
+      abort(400, message=whoami(self) + "Invalid JSON: " + e.msg)
+    try:
+      self.gulag.modify_attachment(args)
+      return Response(response=None,status=204,mimetype=None)
+    except GulagBadInputException as e:
+      abort(400, message=whoami(self)+e.message)
+    except GulagNotFoundException as e:
+      abort(404, message=whoami(self)+e.message)
+    except GulagException as e:
+      abort(500, message=whoami(self)+e.message)
+
+class ResURI(GulagResource):
+  def get(self,uri_id):
+    args = {"id": uri_id}
+    try:
+      return self.gulag.get_uri(args)
+    except GulagNotFoundException as e:
+      abort(404, message=whoami(self)+e.message)
+    except GulagException as e:
+      abort(500, message=whoami(self)+e.message)
+  def patch(self,uri_id):
+    try:
+      args = json.loads(request.get_data(as_text=True))
+      args['id'] = uri_id
+    except json.JSONDecodeError as e:
+      abort(400, message=whoami(self) + "Invalid JSON: " + e.msg)
+    try:
+      self.gulag.modify_uri(args)
+      return Response(response=None,status=204,mimetype=None)
+    except GulagBadInputException as e:
+      abort(400, message=whoami(self)+e.message)
     except GulagNotFoundException as e:
       abort(404, message=whoami(self)+e.message)
     except GulagException as e:

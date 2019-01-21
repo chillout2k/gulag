@@ -415,6 +415,31 @@ class GulagDB:
     except mariadb.Error as e:
       raise GulagDBException(whoami(self) + str(e.msg)) from e
 
+  def modify_attachment(self, attachment):
+    try:
+      cursor = self.conn.cursor()
+      mod_fields = ""
+      if 'id' not in attachment:
+        raise GulagDBBadInputException("Missing Attachment-ID!")
+      if len(attachment) < 2:
+        raise GulagDBBadInputException("No fields specified to modify!")
+      for field in attachment:
+        if field == 'id':
+          continue
+        mod_fields += " " + field + "='" + attachment[field] + "',"
+      mod_fields = str(mod_fields).rstrip(',')
+      cursor.execute(
+        "update Attachment set "+mod_fields+" where id="+str(attachment['id'])
+      )
+      if(cursor.rowcount == 0):
+        raise GulagDBNotFoundException(whoami(self) + "No attachments modified!")
+      cursor.close()
+      return True
+    except GulagDBBadInputException as e:
+      raise GulagDBBadInputException(whoami(self) + e.message) from e
+    except mariadb.Error as e:
+      raise GulagDBException(whoami(self) + str(e.msg)) from e
+
   def get_attachments(self):
     try:
       query = "select Attachments.*,QuarMails.mailbox_id,QuarMails.imap_uid"
@@ -433,7 +458,9 @@ class GulagDB:
         dict = {}
         for (name, value) in zip(desc, tuple):
           dict[name[0]] = value
-        dict['href'] = self.uri_prefixes['attachments'] + str(dict['id'])
+        #dict['href'] = self.uri_prefixes['attachments'] + str(dict['id'])
+        dict['href'] = self.uri_prefixes['quarmails'] + str(quarmail_id)
+        dict['href'] += "/attachments/" + str(dict['id'])
         results.append(Attachment(dict).__dict__)
       return results
     except mariadb.Error as e:
@@ -458,7 +485,9 @@ class GulagDB:
       dict = {}
       for (name, value) in zip(desc, tuple):
         dict[name[0]] = value
-      dict['href'] = self.uri_prefixes['attachments'] + str(dict['id'])
+      #dict['href'] = self.uri_prefixes['attachments'] + str(dict['id'])
+      dict['href'] = self.uri_prefixes['quarmails'] + str(quarmail_id)
+      dict['href'] += "/attachments/" + str(dict['id'])
       return Attachment(dict).__dict__
     except mariadb.Error as e:
       raise GulagDBException(whoami(self) + str(e.msg)) from e
@@ -554,6 +583,29 @@ class GulagDB:
     except mariadb.Error as e:
       raise GulagDBException(whoami(self) + str(e.msg)) from e
 
+  def modify_uri(self, uri):
+    try:
+      cursor = self.conn.cursor()
+      mod_fields = ""
+      if 'id' not in uri:
+        raise GulagDBBadInputException("Missing URI-ID!")
+      if len(uri) < 2:
+        raise GulagDBBadInputException("No fields specified to modify!")
+      for field in uri:
+        if field == 'id':
+          continue
+        mod_fields += " " + field + "='" + uri[field] + "',"
+      mod_fields = str(mod_fields).rstrip(',')
+      cursor.execute("update URI set "+mod_fields+" where id="+str(uri['id']))
+      if(cursor.rowcount == 0):
+        raise GulagDBNotFoundException(whoami(self) + "No URIs modified!")
+      cursor.close()
+      return True
+    except GulagDBBadInputException as e:
+      raise GulagDBBadInputException(whoami(self) + e.message) from e
+    except mariadb.Error as e:
+      raise GulagDBException(whoami(self) + str(e.msg)) from e
+
   def quarmail2uri(self,quarmail_id,uri_id):
     try:
       cursor = self.conn.cursor()
@@ -582,6 +634,7 @@ class GulagDB:
         dict = {}
         for (name, value) in zip(desc, tuple):
           dict[name[0]] = value
+        #dict['href'] = self.uri_prefixes['uris'] + str(dict['id'])
         dict['href'] = self.uri_prefixes['quarmails'] + str(quarmail_id)
         dict['href'] += "/uris/" + str(dict['id'])
         results.append(URI(dict).__dict__)
@@ -612,6 +665,7 @@ class GulagDB:
       dict = {}
       for (name, value) in zip(desc, tuple):
         dict[name[0]] = value
+        #dict['href'] = self.uri_prefixes['uris'] + str(dict['id'])
         dict['href'] = self.uri_prefixes['quarmails'] + str(quarmail_id)
         dict['href'] += "/uris/" + str(dict['id'])
       try:

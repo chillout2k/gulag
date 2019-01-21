@@ -61,6 +61,7 @@ class Gulag:
       self.fields['Mailrelays'] = self.db.get_fields('Mailrelays')
       self.fields['QuarMails'] = self.db.get_fields('QuarMails')
       self.fields['Attachments'] = self.db.get_fields('Attachments')
+      self.fields['URIs'] = self.db.get_fields('URIs')
     except GulagDBException as e:
       logging.warning(whoami(self) + e.message)
       raise GulagException(whoami(self) + e.message) from e
@@ -178,9 +179,9 @@ class Gulag:
             "QuarMail(%s)@Mailbox(%s) imported" % (quarmail_id,mailbox['id'])
           )
           quarmail_ids.append(quarmail_id)
-        # Ende for rcpts
-        # Alle MIME-Parts durchiterieren und Attachments
-        # (MIME-Parts mit name/filename Attribut) extrahieren
+        # End for rcpts
+        # Iterate through all MIME-parts and extract all
+        # attachments (parts with a name/filename attribute)
         for part in msg.walk():
           if part.get_filename():
             # ist ein Attachment
@@ -533,6 +534,24 @@ class Gulag:
     if 'data' not in args:
       return at_db
 
+  def modify_attachment(self, attachment):
+    try:
+      if 'id' not in attachment:
+        raise GulagBadInputException(whoami(self) + "'id' is mandatory!")
+      for field in attachment:
+        if field not in self.fields['Attachments']:
+          raise GulagBadInputException(whoami(self) +
+            "Unknown Attachment field: " + field
+          )
+      self.db.modify_attachment(attachment)
+    except GulagDBBadInputException as e:
+      raise GulagBadInputException(whoami(self) + e.message) from e
+    except GulagDBNotFoundException as e:
+      raise GulagNotFoundException(whoami(self) + e.message) from e
+    except GulagDBException as e:
+      logging.warning(whoami(self) + e.message)
+      raise GulagException(whoami(self) + e.message) from e
+
   def get_quarmail_uris(self,args):
     if('from_rfc822_message' not in args):
       try:
@@ -578,6 +597,24 @@ class Gulag:
     except GulagDBNotFoundException as e:
       raise GulagNotFoundException(whoami(self) + e.message) from e
     except GulagDBException as e:
+      raise GulagException(whoami(self) + e.message) from e
+
+  def modify_uri(self, uri):
+    try:
+      if 'id' not in uri:
+        raise GulagBadInputException(whoami(self) + "'id' is mandatory!")
+      for field in uri:
+        if field not in self.fields['URIs']:
+          raise GulagBadInputException(whoami(self) +
+            "Unknown URI field: " + field
+          )
+      self.db.modify_uri(uri)
+    except GulagDBBadInputException as e:
+      raise GulagBadInputException(whoami(self) + e.message) from e
+    except GulagDBNotFoundException as e:
+      raise GulagNotFoundException(whoami(self) + e.message) from e
+    except GulagDBException as e:
+      logging.warning(whoami(self) + e.message)
       raise GulagException(whoami(self) + e.message) from e
 
   def rspamd2mailbox(self,args):

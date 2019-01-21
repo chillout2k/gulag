@@ -20,7 +20,7 @@ curl -v -s http://127.0.0.1:9090/api/v1/quarmails?rfc822_message=1 | jq
 
 ## update a QuarMail´s metadata (e.g. sandbox_results) by ID
 ```
- curl -v -s -X PATCH -d '{"sandbox_results":"12345abc"}' http://127.0.0.1:9090/api/v1/quarmails/311|jq
+ curl -v -s -X PATCH -d '{"cf_meta":"12345abc"}' http://127.0.0.1:9090/api/v1/quarmails/311|jq
 ```
 
 ## delete a QuarMail by ID
