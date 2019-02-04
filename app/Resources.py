@@ -187,6 +187,8 @@ class ResAttachments(GulagResource):
 class ResAttachment(GulagResource):
   def get(self,attachment_id):
     args = {"id": attachment_id}
+    if(request.args.get('data')):
+      args['data'] = True
     try:
       return self.gulag.get_attachment(args)
     except GulagNotFoundException as e:
@@ -211,9 +213,8 @@ class ResAttachment(GulagResource):
 
 class ResURI(GulagResource):
   def get(self,uri_id):
-    args = {"id": uri_id}
     try:
-      return self.gulag.get_uri(args)
+      return self.gulag.get_uri(uri_id)
     except GulagNotFoundException as e:
       abort(404, message=whoami(self)+e.message)
     except GulagException as e:

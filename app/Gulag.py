@@ -533,6 +533,26 @@ class Gulag:
       raise GulagException(whoami(self) + e.message) from e
     if 'data' not in args:
       return at_db
+    # pull attachment from IMAP mailbox
+    mailbox = None
+    try:
+      mailbox = self.db.get_mailbox(at_db['mailbox_id'])
+    except GulagDBNotFoundException as e:
+      raise GulagNotFoundException(whoami(self) + e.message) from e
+    except GulagDBException as e:
+      logging.warning(whoami(self) + e.message)
+      raise GulagException(whoami(self) + e.message) from e
+    imap_mb = None
+    try:
+      imap_mb = IMAPmailbox(mailbox)
+      at_db['data'] = imap_mb.get_attachment(
+        at_db['imap_uid'],at_db['filename']
+      )
+      imap_mb.close
+      return at_db
+    except IMAPmailboxException as e:
+      logging.warning(whoami(self) + e.message)
+      raise GulagException(whoami(self) + e.message) from e
 
   def modify_attachment(self, attachment):
     try:
@@ -594,6 +614,14 @@ class Gulag:
   def get_quarmail_uri(self,args):
     try:
       return self.db.get_quarmail_uri(args['quarmail_id'],args['uri_id'])
+    except GulagDBNotFoundException as e:
+      raise GulagNotFoundException(whoami(self) + e.message) from e
+    except GulagDBException as e:
+      raise GulagException(whoami(self) + e.message) from e
+
+  def get_uri(self,uri_id):
+    try:
+      return self.db.get_uri(uri_id)
     except GulagDBNotFoundException as e:
       raise GulagNotFoundException(whoami(self) + e.message) from e
     except GulagDBException as e:

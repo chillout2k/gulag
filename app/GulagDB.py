@@ -473,7 +473,7 @@ class GulagDB:
       query += " from QuarMail2Attachment"
       query += " left join QuarMails ON QuarMails.id = QuarMail2Attachment.quarmail_id"
       query += " left join Attachments ON Attachments.id = QuarMail2Attachment.attachment_id"
-      query += " where id=" + str(args['id']) + ";"
+      query += " where attachment_id=" + str(args['id']) + ";"
       cursor.execute(query)
       data = cursor.fetchall()
       if not data:
@@ -486,8 +486,7 @@ class GulagDB:
       for (name, value) in zip(desc, tuple):
         dict[name[0]] = value
       #dict['href'] = self.uri_prefixes['attachments'] + str(dict['id'])
-      dict['href'] = self.uri_prefixes['quarmails'] + str(quarmail_id)
-      dict['href'] += "/attachments/" + str(dict['id'])
+      dict['href'] = self.uri_prefixes['attachments'] + str(dict['id'])
       return Attachment(dict).__dict__
     except mariadb.Error as e:
       raise GulagDBException(whoami(self) + str(e.msg)) from e
@@ -580,6 +579,29 @@ class GulagDB:
         (args['uri'], args['fqdn'])
       )
       return cursor.lastrowid
+    except mariadb.Error as e:
+      raise GulagDBException(whoami(self) + str(e.msg)) from e
+
+  def get_uri(self,uri_id):
+    try:
+      query = "select * from URIs where id=" + str(uri_id) + ";"
+      cursor = self.conn.cursor()
+      cursor.execute(query)
+      data = cursor.fetchall()
+      if not data:
+        raise GulagDBNotFoundException(whoami(self) +
+          "URI(" + str(uri_id) + ") not found!"
+        )
+      desc = cursor.description
+      tuple = data[0]
+      dict = {}
+      for (name, value) in zip(desc, tuple):
+        dict[name[0]] = value
+        dict['href'] = self.uri_prefixes['uris'] + str(dict['id'])
+      try:
+        return URI(dict).__dict__
+      except URIException as e:
+        raise GulagDBException(whoami(self) + e.message) from e
     except mariadb.Error as e:
       raise GulagDBException(whoami(self) + str(e.msg)) from e
 
