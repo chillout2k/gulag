@@ -5,6 +5,8 @@ from email.parser import HeaderParser
 import time
 import re
 from GulagUtils import whoami
+import logging
+
 
 class IMAPmailboxException(Exception):
   message = None
@@ -16,15 +18,20 @@ class IMAPmailbox:
   imap_server = None
   imap_user = None
   imap_pass = None
-  imap_mailbox = None
+  imap_inbox = None
   mailbox = None
+  tags = (
+    'gulag_quarantined',
+    'gulag_released',
+    'gulag_bounced'
+  )
 
   def __init__(self, mb_ref):
     self.id = mb_ref['id']
     self.imap_server = mb_ref['imap_server']
     self.imap_user = mb_ref['imap_user']
     self.imap_pass = mb_ref['imap_pass']
-    self.imap_mailbox = mb_ref['imap_mailbox']
+    self.imap_inbox = mb_ref['imap_inbox']
     try:
       self.mailbox = imaplib.IMAP4(self.imap_server)
       rv, data = self.mailbox.login(self.imap_user, self.imap_pass)
@@ -36,20 +43,50 @@ class IMAPmailbox:
       raise IMAPmailboxException(whoami(self) +
         self.imap_user + ": IMAP server " + self.imap_server + " refused connection"
       ) from e
-
-    rv, data = self.mailbox.select(self.imap_mailbox)
+    rv, data = self.mailbox.select(self.imap_inbox)
     if rv != 'OK':
       raise IMAPmailboxException(whoami(self) +
-        "ERROR: Unable to select mailbox: " + self.imap_mailbox
+        "ERROR: Unable to select mailbox: " + self.imap_inbox
       )
+
+  def init_folders(self):
+    # Check for all mandatory folders
+    mandatory_folders = {
+      "failed": False
+    }
+    rv, data = self.mailbox.list('""', '*')
+    if rv != 'OK':
+      raise IMAPmailboxException(whoami(self) +
+        "ERROR: Unable to list mailbox: " + self.imap_inbox
+      )
+    for folder in data:
+      # (\HasChildren \Trash) "." Trash
+      p = re.compile(r'^.+".+" (\S+)$')
+      m = p.search(folder.decode())
+      name = m.group(1)
+      if name == 'failed':
+        mandatory_folders['failed'] = True
+    # create mandatory folders if needed
+    for folder in mandatory_folders:
+      if mandatory_folders[folder] == False:
+        rv, data = self.mailbox.create(folder)
+        if rv != 'OK':
+          raise IMAPmailboxException(whoami(self) +
+            "ERROR: Unable to create folder: " + folder
+          )
 
   def close(self):
     self.mailbox.close()
     self.mailbox.logout()
 
-  def get_unseen_messages(self):
+  def get_new_messages(self):
     results = []
-    rv, data = self.mailbox.uid('SEARCH', 'UNSEEN')
+    search_criteria = str(
+      'UNKEYWORD gulag_quarantined'
+      + ' UNKEYWORD gulag_released'
+      + ' UNKEYWORD gulag_bounced'
+    )
+    rv, data = self.mailbox.uid('SEARCH', search_criteria)
     if rv != 'OK':
       return
     for uid in data[0].split():
@@ -65,11 +102,16 @@ class IMAPmailbox:
     return results
 
   def add_message(self,message,unseen=False):
+    rv, data = self.mailbox.select(self.imap_inbox)
+    if rv != 'OK':
+      raise IMAPmailboxException(whoami(self) +
+        "ERROR: Unable to select mailbox: " + self.imap_inbox
+      )
     flags = ''
     if(unseen == True):
       flags = 'UNSEEN'
     rv, data = self.mailbox.append(
-      self.imap_mailbox,
+      self.imap_inbox,
       flags ,
       imaplib.Time2Internaldate(time.time()),
       str(message).encode('utf-8')
@@ -90,6 +132,21 @@ class IMAPmailbox:
         "ERROR getting message: %s", str(imap_uid)
       )
     return data[0][1]
+
+  def move_message(self,imap_uid,dest_mbox):
+    rv, data = self.mailbox.uid('MOVE', str(imap_uid), dest_mbox)
+    if rv != 'OK':
+      raise IMAPmailboxException(whoami(self) +
+        "ERROR moving message: %s", str(imap_uid)
+      )
+
+  def retag_message(self,imap_uid,tag):
+    logging.info(whoami(self) + "UID: " + str(imap_uid))
+    rv, data = self.mailbox.uid('STORE', str(imap_uid.decode()), 'FLAGS', tag)
+    if rv != 'OK':
+      raise IMAPmailboxException(whoami(self) +
+        "ERROR flagging message for deletion: %s", str(imap_uid)
+      )
 
   def delete_message(self,imap_uid):
     rv, data = self.mailbox.uid('STORE', str(imap_uid), '+FLAGS', '(\\Deleted)')

@@ -1,0 +1,11 @@
+# add multiple flags
+. store 1365 +FLAGS blah blah2
+
+# remove a flag
+. store 1365 -FLAGS blah
+
+# replace flags
+. store 1365 FLAGS blah3
+
+# search by multiple missing flags
+. search UNKEYWORD asdfasdfasdf UNKEYWORD blah2

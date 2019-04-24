@@ -56,9 +56,7 @@ class Mailbox:
   imap_security = None
   imap_user = None
   imap_pass = None
-  imap_mailbox = None
-  imap_mailbox_fp = None
-  imap_separator = None
+  imap_inbox = None
   mailrelay_id = None
   comment = None
   href = None
@@ -90,15 +88,9 @@ class Mailbox:
     if 'imap_pass' not in mb_ref:
       raise MailboxException("'imap_pass' is mandatory!")
     self.imap_pass = mb_ref['imap_pass']
-    if 'imap_mailbox' not in mb_ref:
-      raise MailboxException("'imap_mailbox' is mandatory!")
-    self.imap_mailbox = mb_ref['imap_mailbox']
-    if 'imap_mailbox_fp' not in mb_ref:
-      raise MailboxException("'imap_mailbox_fp' is mandatory!")
-    self.imap_mailbox_fp = mb_ref['imap_mailbox_fp']
-    if 'imap_separator' not in mb_ref:
-      raise MailboxException("'imap_separator' is mandatory!")
-    self.imap_seperator = mb_ref['imap_separator']
+    if 'imap_inbox' not in mb_ref:
+      raise MailboxException("'imap_inbox' is mandatory!")
+    self.imap_inbox = mb_ref['imap_inbox']
     if 'mailrelay_id' not in mb_ref:
       raise MailboxException("'mailrelay_id' is mandatory!")
     self.mailrelay_id = mb_ref['mailrelay_id']

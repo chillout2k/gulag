@@ -21,10 +21,10 @@ fi
 
 IMAGES="gulag-server gulag-db"
 
+#    --build-arg http_proxy=http://wprx-zdf.zwackl.local:3128 \
+#    --build-arg https_proxy=http://wprx-zdf.zwackl.local:3128 \
 for IMAGE in ${IMAGES}; do
   /usr/bin/docker build \
-    --build-arg http_proxy=http://wprx-zdf.zwackl.local:3128 \
-    --build-arg https_proxy=http://wprx-zdf.zwackl.local:3128 \
     -t "${IMAGE}/${BASEOS}:${VERSION}_${BRANCH}" \
     -f "docker/${IMAGE}/${BASEOS}/Dockerfile" .
 #  /usr/bin/docker tag "${IMAGE}/${BASEOS}:${VERSION}_${BRANCH}" "${REGISTRY}/${IMAGE}/${BASEOS}:${VERSION}_${BRANCH}"

@@ -263,7 +263,8 @@ class GulagDB:
           "(mx_queue_id,env_from,env_rcpt,"+
           "hdr_cf,hdr_from,hdr_subject,"+
           "hdr_msgid,hdr_date,cf_meta,"+
-          "mailbox_id,imap_uid,msg_size,ssdeep,source_id) " +
+          "mailbox_id,imap_uid,msg_size,ssdeep,"+
+          "source_id) " +
         "values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (quarmail['mx_queue_id'],quarmail['env_from'],quarmail['env_rcpt'],
          quarmail['hdr_cf'],quarmail['hdr_from'],quarmail['hdr_subject'],

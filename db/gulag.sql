@@ -21,9 +21,7 @@ create table Mailboxes(
   imap_security varchar(32) not null default 'plain' collate 'ascii_general_ci',
   imap_user varchar(256) not null collate 'ascii_general_ci',
   imap_pass varchar(1024) not null collate 'ascii_general_ci',
-  imap_mailbox varchar(256) not null default 'INBOX',
-  imap_mailbox_fp varchar(256) not null default 'false-positives',
-  imap_separator varchar(4) not null default '/',
+  imap_inbox varchar(256) not null default 'INBOX',
   mailrelay_id varchar(128) not null,
   foreign key (mailrelay_id) references Mailrelays (id) on update cascade on delete restrict,
   comment varchar(256) default null

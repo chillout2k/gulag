@@ -1,5 +1,6 @@
 import json, sys,os,logging,re,magic
 import email,email.header,email.message
+from email import policy
 from GulagDB import (
   GulagDB,GulagDBException,GulagDBNotFoundException,GulagDBBadInputException
 )
@@ -65,6 +66,15 @@ class Gulag:
     except GulagDBException as e:
       logging.warning(whoami(self) + e.message)
       raise GulagException(whoami(self) + e.message) from e
+    # Init mailboxes/folders
+    for mailbox in self.db.get_mailboxes():
+      try:
+        imap_mb = IMAPmailbox(mailbox)
+        imap_mb.init_folders()
+        imap_mb.close
+      except IMAPmailboxException as e:
+        logging.warning(whoami(self) + e.message)
+        continue
 
   def check_filters(self,fields_target,filters):
     if fields_target not in self.fields:
@@ -100,20 +110,27 @@ class Gulag:
       messages = []
       try:
         imap_mb = IMAPmailbox(mailbox)
-        messages = imap_mb.get_unseen_messages()
+        messages = imap_mb.get_new_messages()
       except IMAPmailboxException as e:
         logging.warning(whoami(self) + e.message)
         continue
-      for unseen in messages:
+      for message in messages:
         quarmail_ids = []
         attachments = []
         uris = {}
-        uid = unseen['imap_uid']
-        msg = email.message_from_bytes(unseen['msg'])
+        uid = message['imap_uid']
+        msg = email.message_from_bytes(message['msg'])
         source_id = 'amavis'
         if 'X-Gulag-Source' in msg:
           source_id = email.header.decode_header(msg['X-Gulag-Source'])[0][0]
-        r5321_from = email.header.decode_header(msg['Return-Path'])[0][0]
+        try:
+          r5321_from = email.header.decode_header(msg['Return-Path'])[0][0]
+        except:
+          logging.warning(whoami(self) +
+            "Failed to get return-path header! Moving message to failed folder!"
+          )
+          imap_mb.move_message(str(uid.decode()), 'failed')
+          continue
         if(r5321_from is not '<>'):
           r5321_from = r5321_from.replace("<","")
           r5321_from = r5321_from.replace(">","")
@@ -122,17 +139,21 @@ class Gulag:
           r5321_rcpts = email.header.decode_header(
             msg['X-Envelope-To-Blocked'])[0][0]
         except:
+          # TODO: move_message to INBOX.failed
           logging.warning(whoami(self) +
-            "Failed to extract envelope recipients! Skipping mail"
+            "Failed to extract envelope recipients! Moving message to failed folder!"
           )
+          imap_mb.move_message(str(uid.decode()), 'failed')
           continue
         r5322_from = None
         try:
           r5322_from = email.header.decode_header(msg['From'])[0][0]
         except:
+          # TODO: move_message to INBOX.failed
           logging.warning(whoami(self) +
-            "Failed to extract from header! Skipping mail"
+            "Failed to extract from header! Moving message to failed folder!"
           )
+          imap_mb.move_message(str(uid.decode()), 'failed')
           continue
         subject = email.header.decode_header(msg['Subject'])[0][0]
         msg_id = None
@@ -155,6 +176,13 @@ class Gulag:
         r5321_rcpts = r5321_rcpts.replace(" ", "")
         r5321_rcpts = r5321_rcpts.replace("<", "")
         r5321_rcpts = r5321_rcpts.replace(">", "")
+        try:
+          msg_serialized = msg.as_string()
+        except LookupError:
+          # LookupError: unknown encoding: _iso-2022-jp$esc
+          # https://github.com/coddingtonbear/django-mailbox/commit/aa59199c9b98ed317c6c95dc4018e21d1302858c
+          msg.set_payload(msg.get_payload(decode=True).decode('ascii','ignore'))
+          msg_serialized = msg.as_string()
         # Pro Envelope-RCPT einen Eintrag in die DB schreiben.
         # Die E-Mail im IMAP-Backend existiert jedoch nur ein Mal und wird
         # über die mailbox_id sowie die imap_uid mehrfach referenziert.
@@ -165,9 +193,9 @@ class Gulag:
               'env_rcpt': r5321_rcpt, 'hdr_cf': x_spam_status,
               'hdr_from': r5322_from, 'hdr_subject': subject,
               'hdr_msgid': msg_id, 'hdr_date': date, 'cf_meta': 'cf_meta',
-              'mailbox_id': 'quarantine@zwackl.de', 'imap_uid': uid,
-              'source_id': source_id, 'msg_size': len(msg.as_string()),
-              'ssdeep': ssdeep.hash(msg.as_string())
+              'mailbox_id': mailbox['id'], 'imap_uid': uid,
+              'source_id': source_id, 'msg_size': len(msg_serialized),
+              'ssdeep': ssdeep.hash(msg_serialized)
             })
           except GulagDBBadInputException as e:
             logging.warn(whoami(self) + e.message)
@@ -180,6 +208,8 @@ class Gulag:
           )
           quarmail_ids.append(quarmail_id)
         # End for rcpts
+        # Tag message as 'gulag_quarantined' in IMAP backend
+        imap_mb.retag_message(uid, 'gulag_quarantined')
         # Iterate through all MIME-parts and extract all
         # attachments (parts with a name/filename attribute)
         for part in msg.walk():
@@ -193,12 +223,18 @@ class Gulag:
               # filename isn´t encoded
               filename = filename[0][0]
             attach_decoded = part.get_payload(decode=True)
+            try:
+              mgc = magic.from_buffer(attach_decoded)
+              mime_type = magic.from_buffer(attach_decoded, mime=True)
+            except TypeError as e:
+              logging.warning(whoami(self) + str(e))
+              continue
             attach_id = self.db.add_attachment({
               'filename': filename,
               'content_type': part.get_content_type(),
               'content_encoding': part['Content-Transfer-Encoding'],
-              'magic': magic.from_buffer(attach_decoded),
-              'mime_type': magic.from_buffer(attach_decoded, mime=True),
+              'magic': mgc,
+              'mime_type': mime_type,
               'sha256': hashlib.sha256(attach_decoded).hexdigest(),
               'ssdeep': ssdeep.hash(attach_decoded),
               'size': len(attach_decoded)
@@ -239,7 +275,7 @@ class Gulag:
                 )
               except GulagDBException as e:
                 logging.error(whoami(self) + e.message)
-      # End for(unseen)
+      # End for(messages)
       imap_mb.close()
     # End for get_mailboxes
 
@@ -425,12 +461,12 @@ class Gulag:
       mailrelay = GulagMailrelay(mailrelay_ref)
       mailrelay.release_quarmail(quarmail)
       logging.info(whoami(self) +
-        "QuarMail("+quarmail['id']+") released. env_rcpt: "+quarmail['env_rcpt']
+        "QuarMail("+str(quarmail['id'])+") released. env_rcpt: "+quarmail['env_rcpt']
       )
       if 'purge' in args:
         self.delete_quarmail({"quarmail_id": args['quarmail_id']})
         logging.info(whoami(self) +
-          "QuarMail(" + quarmail['id'] + ") deleted"
+          "QuarMail(" + str(quarmail['id']) + ") deleted"
         )
     except GulagNotFoundException as e:
       raise GulagNotFoundException(whoami(self) + e.message) from e
@@ -454,12 +490,12 @@ class Gulag:
       mailrelay = GulagMailrelay(mailrelay_ref)
       mailrelay.bounce_quarmail(quarmail)
       logging.info(whoami(self) +
-        "QuarMail("+quarmail['id']+") bounced back to "+quarmail['env_from']
+        "QuarMail("+str(quarmail['id'])+") bounced back to "+quarmail['env_from']
       )
       if 'purge' in args:
         self.delete_quarmail({"quarmail_id": args['quarmail_id']})
         logging.info(whoami(self) +
-          "QuarMail(" + quarmail['id'] + ") deleted"
+          "QuarMail(" + str(quarmail['id']) + ") deleted"
         )
     except GulagNotFoundException as e:
       raise GulagNotFoundException(whoami(self) + e.message) from e
