@@ -139,7 +139,6 @@ class Gulag:
           r5321_rcpts = email.header.decode_header(
             msg['X-Envelope-To-Blocked'])[0][0]
         except:
-          # TODO: move_message to INBOX.failed
           logging.warning(whoami(self) +
             "Failed to extract envelope recipients! Moving message to failed folder!"
           )
@@ -149,7 +148,6 @@ class Gulag:
         try:
           r5322_from = email.header.decode_header(msg['From'])[0][0]
         except:
-          # TODO: move_message to INBOX.failed
           logging.warning(whoami(self) +
             "Failed to extract from header! Moving message to failed folder!"
           )
@@ -214,7 +212,7 @@ class Gulag:
         # attachments (parts with a name/filename attribute)
         for part in msg.walk():
           if part.get_filename():
-            # ist ein Attachment
+            # is an Attachment
             filename = email.header.decode_header(part.get_filename())
             if filename[0][1]:
               # filename is encoded
