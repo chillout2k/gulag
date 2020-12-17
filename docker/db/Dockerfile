@@ -8,3 +8,5 @@ RUN apt update && \
  && rm -rf /var/lib/apt/lists/*
 COPY db/gulag.sql /.
 CMD ["/usr/bin/mysqld_safe"]
+
+### FIXME: /var/run/mysqld ist nur für root beschreibbar!

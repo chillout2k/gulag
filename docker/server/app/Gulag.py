@@ -7,7 +7,8 @@ from GulagDB import (
 from GulagMailbox import IMAPmailbox,IMAPmailboxException
 from GulagMailrelay import GulagMailrelay,GulagMailrelayException
 from GulagUtils import whoami,extract_uris,extract_fqdn
-import ssdeep, hashlib
+#import ssdeep, hashlib
+import hashlib
 
 class GulagException(Exception):
   message = None
@@ -131,7 +132,7 @@ class Gulag:
           )
           imap_mb.move_message(str(uid.decode()), 'failed')
           continue
-        if(r5321_from is not '<>'):
+        if(r5321_from != '<>'):
           r5321_from = r5321_from.replace("<","")
           r5321_from = r5321_from.replace(">","")
         r5321_rcpts = None
@@ -193,7 +194,8 @@ class Gulag:
               'hdr_msgid': msg_id, 'hdr_date': date, 'cf_meta': 'cf_meta',
               'mailbox_id': mailbox['id'], 'imap_uid': uid,
               'source_id': source_id, 'msg_size': len(msg_serialized),
-              'ssdeep': ssdeep.hash(msg_serialized)
+#              'ssdeep': ssdeep.hash(msg_serialized)
+              'ssdeep': 'ALPINE-LINUX-TBD!'
             })
           except GulagDBBadInputException as e:
             logging.warn(whoami(self) + e.message)
@@ -234,7 +236,8 @@ class Gulag:
               'magic': mgc,
               'mime_type': mime_type,
               'sha256': hashlib.sha256(attach_decoded).hexdigest(),
-              'ssdeep': ssdeep.hash(attach_decoded),
+#              'ssdeep': ssdeep.hash(attach_decoded),
+              'ssdeep': 'ALPINE-LINUX-TBD!',
               'size': len(attach_decoded)
             })
             attachments.append(attach_id)

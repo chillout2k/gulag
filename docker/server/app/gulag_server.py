@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import traceback
 import argparse,sys,logging
 from flask import Flask
 from flask_restful import Api
@@ -94,4 +95,4 @@ try:
     gulag.db.close()
     sys.exit(0)
 except:
-  logging.error("Gulag-Server-Exception: " + str(sys.exc_info()))
+  logging.error("Gulag-Server-Exception: " + traceback.format_exc())

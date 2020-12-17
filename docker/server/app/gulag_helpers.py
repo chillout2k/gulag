@@ -18,15 +18,15 @@ if(importer_pid == 0):
     logging.info("Gulag-Importer Exception: " + e.message)
     sys.exit(1)
   except:
-    logging.info("Gulag-Importer Exception: " + str(sys.exc_info()))
+    logging.info("Gulag-Importer Exception: " + traceback.format_exc())
   logging.info("Gulag-Importer: starting")
   while True:
     try:
       gulag.import_quarmails()
     except GulagException as e:
-      logging.error("Gulag-Importer-Exception: " + e.message)
+      logging.error("Gulag-Importer-Exception1: " + traceback.format_exc())
     except:
-      logging.error("Gulag-Importer-Exception: " + traceback.format_exc())
+      logging.error("Gulag-Importer-Exception2: " + traceback.format_exc())
     time.sleep(gulag.config['importer']['interval'])
 
 cleaner_pid = os.fork()
